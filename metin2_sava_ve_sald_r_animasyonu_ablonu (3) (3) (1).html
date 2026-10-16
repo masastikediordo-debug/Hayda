@@ -6236,6 +6236,7 @@
                 golem: new THREE.MeshStandardMaterial({ color: 0xff8c3c, emissive: 0xff4c0b, emissiveIntensity: 1.5, roughness: 0.26 }),
                 tiger: new THREE.MeshStandardMaterial({ color: 0xe7c46b, emissive: 0x61410d, emissiveIntensity: 0.42, roughness: 0.28 }),
                 demon: new THREE.MeshStandardMaterial({ color: 0xf24532, emissive: 0x7a140d, emissiveIntensity: 0.92, roughness: 0.24 }),
+                ashWraith: new THREE.MeshStandardMaterial({ color: 0xffd0b5, emissive: 0xe55d9b, emissiveIntensity: 1.4, roughness: 0.16 }),
                 dragon: new THREE.MeshStandardMaterial({ color: 0x77e8d2, emissive: 0x126f70, emissiveIntensity: 1.1, roughness: 0.2 }),
                 sandScorpion: new THREE.MeshStandardMaterial({ color: 0xffd071, emissive: 0x9a4c12, emissiveIntensity: 0.8, roughness: 0.24 }),
                 duneSerpent: new THREE.MeshStandardMaterial({ color: 0xf4d579, emissive: 0x68711b, emissiveIntensity: 0.7, roughness: 0.24 }),
@@ -6252,7 +6253,7 @@
                 canvas.width = 256;
                 canvas.height = 256;
                 const context = canvas.getContext('2d');
-                const base = type === 'tiger' ? '#c88737' : type === 'dragon' ? '#266f68' : type === 'demon' ? '#73352c' : type === 'golem' ? '#77766b' : type === 'bear' ? '#65432f' : type === 'sandScorpion' ? '#ad6c35' : type === 'duneSerpent' ? '#6d8c42' : type === 'sandRaider' ? '#8f6742' : type.startsWith('orc') ? '#4d6940' : type === 'venomSpider' ? '#385442' : type === 'caveSpider' ? '#67513d' : type === 'spiderMatriarch' ? '#542b3c' : '#77766e';
+                const base = type === 'tiger' ? '#c88737' : type === 'dragon' ? '#266f68' : type === 'demon' ? '#73352c' : type === 'ashWraith' ? '#4f3b52' : type === 'golem' ? '#77766b' : type === 'bear' ? '#65432f' : type === 'sandScorpion' ? '#ad6c35' : type === 'duneSerpent' ? '#6d8c42' : type === 'sandRaider' ? '#8f6742' : type.startsWith('orc') ? '#4d6940' : type === 'venomSpider' ? '#385442' : type === 'caveSpider' ? '#67513d' : type === 'spiderMatriarch' ? '#542b3c' : '#77766e';
                 context.fillStyle = base;
                 context.fillRect(0, 0, 256, 256);
                 for (let index = 0; index < 900; index++) {
@@ -6304,7 +6305,7 @@
                 texture.encoding = THREE.sRGBEncoding;
                 return texture;
             }
-            const creatureTextures = Object.fromEntries(['wolf', 'bear', 'golem', 'tiger', 'demon', 'dragon', 'sandScorpion', 'duneSerpent', 'sandRaider', 'orcScout', 'orcBrute', 'orcShaman', 'venomSpider', 'caveSpider', 'spiderMatriarch'].map(type => [type, makeCreatureTexture(type)]));
+            const creatureTextures = Object.fromEntries(['wolf', 'bear', 'golem', 'tiger', 'demon', 'ashWraith', 'dragon', 'sandScorpion', 'duneSerpent', 'sandRaider', 'orcScout', 'orcBrute', 'orcShaman', 'venomSpider', 'caveSpider', 'spiderMatriarch'].map(type => [type, makeCreatureTexture(type)]));
             const materialsByType = {
                 wolf: {
                     hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.wolf, roughness: 0.96 }),
@@ -6331,6 +6332,11 @@
                 hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.demon, roughness: 0.84 }),
                 light: new THREE.MeshStandardMaterial({ color: 0x9d4a35, roughness: 0.88 }),
                 dark: new THREE.MeshStandardMaterial({ color: 0x251a1b, metalness: 0.32, roughness: 0.48 })
+            };
+            materialsByType.ashWraith = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.ashWraith, roughness: 0.26, metalness: 0.3, emissive: 0x4a1f36, emissiveIntensity: 0.8 }),
+                light: new THREE.MeshStandardMaterial({ color: 0xd7a4b8, roughness: 0.22, metalness: 0.52 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x2d1221, roughness: 0.3, metalness: 0.52 })
             };
             materialsByType.dragon = {
                 hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.dragon, roughness: 0.3, metalness: 0.18 }),
@@ -6368,6 +6374,7 @@
                 golem: { name: 'Taş Muhafız', level: 18, hp: 235, speed: 0.78, damage: 16, aggro: 10.5, reach: 2.15, attackRate: 2.1, scale: 1.18, xp: 10 },
                 tiger: { name: 'Kanlı Kaplan', level: 26, hp: 310, speed: 2.25, damage: 21, aggro: 13, reach: 1.75, attackRate: 1.25, scale: 1.08, xp: 14 },
                 demon: { name: 'Karanlık Savaşçı', level: 35, hp: 490, speed: 1.38, damage: 29, aggro: 14, reach: 2.25, attackRate: 1.55, scale: 1.24, xp: 21 },
+                ashWraith: { name: 'Kül Hayaleti', level: 70, hp: 3180, speed: 1.48, damage: 78, aggro: 24, reach: 3.4, attackRate: 1.9, scale: 1.86, xp: 170 },
                 dragon: { name: 'Buz Ejderhası', level: 48, hp: 780, speed: 1.72, damage: 42, aggro: 16, reach: 2.8, attackRate: 1.8, scale: 1.62, xp: 32 },
                 sandScorpion: { name: 'Kum Akrebi', level: 24, hp: 280, speed: 1.25, damage: 18, aggro: 12, reach: 1.8, attackRate: 1.7, scale: 1.02, xp: 13 },
                 duneSerpent: { name: 'Kumul Yılanı', level: 25, hp: 320, speed: 1.62, damage: 20, aggro: 13, reach: 1.9, attackRate: 1.45, scale: 1.08, xp: 14 },
@@ -6406,6 +6413,12 @@
                     { name: 'Asit Havuzu', kind: 'circle', range: 14, radius: 4.6, windup: 1, damage: 1.45, cooldown: 2.5, color: 0x8cfa63, warning: 'Asit alanını terk et' },
                     { name: 'Kara Dul Sıçrayışı', kind: 'circle', range: 15, radius: 5.5, windup: 1.15, damage: 1.65, cooldown: 2.8, color: 0xec5f94, warning: 'Sıçrama inişinden kaç' },
                     { name: 'Ağ Hapsi', kind: 'cone', range: 13, angle: 0.52, windup: 1.05, damage: 1.56, cooldown: 2.7, color: 0xd29ee7, warning: 'Ağdan dışarıya açıl' }
+                ],
+                ashWraith: [
+                    { name: 'Kül Darbesi', kind: 'line', range: 13, width: 2.8, windup: 0.9, damage: 1.82, cooldown: 2.5, color: 0xf89ca8, warning: 'Darbe hattından dışarı çık' },
+                    { name: 'Gölge Çemberi', kind: 'circle', range: 12, radius: 6.4, windup: 1.1, damage: 1.7, cooldown: 2.7, color: 0xee7ad3, warning: 'Gölge çemberinden kaç' },
+                    { name: 'Kül Fırtınası', kind: 'cone', range: 15, angle: 0.52, windup: 1.35, damage: 1.95, cooldown: 3.1, color: 0xffb26a, warning: 'Kül nefesinin önünden geç' },
+                    { name: 'Yoksunluk Dalgası', kind: 'circle', range: 16, radius: 5.6, windup: 1.25, damage: 1.86, cooldown: 2.9, color: 0xc7a2ff, warning: 'Karanlık dalgasından uzaklaş' }
                 ]
             };
             const labelMaterials = {};
@@ -6459,7 +6472,7 @@
                 const legs = [];
                 const arms = [];
                 const wings = [];
-                const isDemon = type === 'demon';
+                const isDemon = type === 'demon' || type === 'ashWraith';
                 const isDragon = type === 'dragon';
                 const isFeline = type === 'tiger';
                 const isScorpion = type === 'sandScorpion' || type === 'sandEmpress';
@@ -6714,7 +6727,8 @@
                 { id: 'orc-ravine', name: 'Kızıl Ork Geçidi', center: [74, -60], radius: 12, detail: 'Geçitte seviye 40-44 ork izcileri, kasapları ve şamanları kamp kurmuş. Hükümdar alanda.', spawns: [['orcScout', 72, -58], ['orcBrute', 76, -63], ['orcShaman', 70, -64], ['orcWarlord', 74, -60], ['orcBrute', 79, -56]] },
                 { id: 'spider-hollow', name: 'Kara Dul Yuvası', center: [-75, 75], radius: 12, detail: 'Yuvada seviye 55-62 zehir örümcekleri ve kraliçeleri saklanıyor.', spawns: [['venomSpider', -77, 74], ['venomSpider', -73, 77], ['caveSpider', -78, 78], ['spiderMatriarch', -75, 75], ['caveSpider', -70, 79]] },
                 { id: 'sunken-gate', name: 'Yüzen Kapı', center: [20, -18], radius: 14, detail: 'Su kenarında gölgeler toplanıyor; eski kapıdaki hayaletler artık uyanıyor.', spawns: [['demon', 18, -17], ['sandRaider', 22, -22], ['dragon', 26, -15]] },
-                { id: 'ash-keep', name: 'Kül Kalesi', center: [68, 28], radius: 13, detail: 'Mızraklı koruyucular ve kırmızı savaşçılar burada bekliyor.', spawns: [['orcBrute', 69, 30], ['orcShaman', 65, 28], ['golem', 72, 24], ['orcWarlord', 68, 28]] }
+                { id: 'ash-keep', name: 'Kül Kalesi', center: [68, 28], radius: 13, detail: 'Mızraklı koruyucular ve kırmızı savaşçılar burada bekliyor.', spawns: [['orcBrute', 69, 30], ['orcShaman', 65, 28], ['golem', 72, 24], ['orcWarlord', 68, 28]] },
+                { id: 'cinder-ruins', name: 'Kül Harabeleri', center: [32, 72], radius: 15, detail: 'Toprak altında gömülü bir rüya uyanıyor; kül hayaletleri artık izlendiği anda saldırıyor.', spawns: [['ashWraith', 32, 72], ['demon', 28, 76], ['orcBrute', 36, 75], ['golem', 30, 67]] }
             ];
             explorationRegions.forEach(region => region.spawns.forEach((spawn, index) => addMonster(spawn[0], region, [spawn[1], spawn[2]], index)));
         }
