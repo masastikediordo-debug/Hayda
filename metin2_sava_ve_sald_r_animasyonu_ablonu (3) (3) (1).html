@@ -384,7 +384,7 @@
     <aside id="world-map" class="hud-frame fixed right-3 top-[76px] z-20 w-[210px] p-2.5 pointer-events-none">
         <div class="mb-2 flex items-center justify-between"><div><div class="hud-kicker">KRALLIK HARİTASI</div><h2 class="font-rpg text-[11px] text-stone-100">Yang-Shin</h2></div><span class="border border-emerald-500/30 bg-emerald-950/40 px-1.5 py-1 text-[8px] text-emerald-200">CH 1</span></div>
         <div class="map-field"><span class="map-point" style="left:24%;top:28%"></span><span class="map-point" style="left:75%;top:68%;background:#d7b769"></span><span class="map-player"></span><span class="absolute bottom-1 left-2 z-[2] text-[7px] text-stone-200/80">MERKEZ MEYDAN</span><span class="absolute right-2 top-1 z-[2] text-[8px] text-amber-100">N</span></div>
-        <div class="mt-2 flex items-center justify-between text-[8px] text-stone-400"><span><i class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400"></i><span id="map-current-region">Merkez Meydan</span></span><span id="map-threat-count">0 tehdit</span></div>
+        <div class="mt-2 flex items-center justify-between text-[8px] text-stone-400"><span><i class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400"></i><span id="map-current-region">Merkez Meydan</span></span><span class="flex items-center gap-2"><span id="world-clock" class="text-amber-100 tabular-nums">04:48</span><span id="map-threat-count">0 tehdit</span></span></div>
     </aside>
 
     <div id="exploration-toast" class="hidden fixed left-1/2 top-[132px] z-40 -translate-x-1/2 border border-amber-500/60 bg-black/85 px-5 py-3 text-center shadow-xl" role="status" aria-live="polite">
@@ -580,6 +580,8 @@
         let villageMonsters = [], explorationRegions = [], discoveredRegions = new Set(), worldSimulationTime = 0;
         let savedPlayerPosition = null, profileSaveTimer = 0;
         let directionalSunLight;
+        let worldSkyDome = null;
+        let worldAtmosphere = null;
         let reducedGraphics = false;
         let rendererPixelRatioCap = 1.35;
         const performanceState = { sampleTime: 0, sampleFrames: 0, lowFrameWindows: 0, lastFrameTime: 0, reduced: false };
@@ -1696,7 +1698,62 @@
 
             const textures = createProceduralTextures();
             materials.textures = textures;
-            scene.background = textures.skyTexture;
+            scene.background = new THREE.Color(0x172235);
+            worldSkyDome = new THREE.Mesh(
+                new THREE.SphereGeometry(120, 32, 24),
+                new THREE.ShaderMaterial({
+                    uniforms: {
+                        topColor: { value: new THREE.Color(0x657f9a) },
+                        horizonColor: { value: new THREE.Color(0xe0a77e) },
+                        sunDirection: { value: new THREE.Vector3(0, 1, 0) },
+                        sunColor: { value: new THREE.Color(0xffe2bb) },
+                        nightFactor: { value: 0 },
+                        elapsedTime: { value: 0 }
+                    },
+                    vertexShader: `
+                        varying vec3 vDirection;
+                        void main() {
+                            vDirection = normalize(position);
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        uniform vec3 topColor;
+                        uniform vec3 horizonColor;
+                        uniform vec3 sunDirection;
+                        uniform vec3 sunColor;
+                        uniform float nightFactor;
+                        uniform float elapsedTime;
+                        varying vec3 vDirection;
+                        void main() {
+                            vec3 direction = normalize(vDirection);
+                            float height = smoothstep(-0.2, 0.78, direction.y);
+                            vec3 sky = mix(horizonColor, topColor, height);
+                            float sunDot = dot(direction, normalize(sunDirection));
+                            float sunDisk = smoothstep(0.99925, 0.99972, sunDot);
+                            float sunGlow = pow(max(sunDot, 0.0), 72.0) * 0.42;
+                            sky += sunColor * (sunDisk * 1.4 + sunGlow) * (1.0 - nightFactor * 0.9);
+                            float moonDot = dot(direction, -normalize(sunDirection));
+                            float moonDisk = smoothstep(0.99955, 0.99988, moonDot) * nightFactor;
+                            sky += vec3(0.68, 0.78, 1.0) * moonDisk * 0.9;
+                            vec2 skyUv = vec2(atan(direction.z, direction.x) * 0.1591549 + 0.5, asin(clamp(direction.y, -1.0, 1.0)) * 0.3183099 + 0.5);
+                            vec2 starCell = floor(skyUv * vec2(620.0, 310.0));
+                            float starSeed = fract(sin(dot(starCell, vec2(12.9898, 78.233))) * 43758.5453);
+                            float stars = step(0.9985, starSeed) * nightFactor * smoothstep(-0.02, 0.24, direction.y);
+                            stars *= 0.65 + 0.35 * sin(elapsedTime * 1.7 + starSeed * 24.0);
+                            sky += vec3(0.72, 0.81, 1.0) * stars;
+                            gl_FragColor = vec4(sky, 1.0);
+                        }
+                    `,
+                    side: THREE.BackSide,
+                    depthWrite: false,
+                    depthTest: false,
+                    fog: false
+                })
+            );
+            worldSkyDome.renderOrder = -1;
+            worldSkyDome.frustumCulled = false;
+            scene.add(worldSkyDome);
 
             const hemiLight = new THREE.HemisphereLight(0xe5edf0, 0x51483a, 1.15);
             scene.add(hemiLight);
@@ -1717,7 +1774,25 @@
             keyLight.shadow.bias = -0.0005;
             scene.add(keyLight);
 
-            scene.add(new THREE.AmbientLight(0xd5d1c3, 0.32));
+            const ambientLight = new THREE.AmbientLight(0xd5d1c3, 0.32);
+            scene.add(ambientLight);
+            const atmospherePhases = [
+                { time: 0, sky: 0x172235, skyTop: 0x070e20, horizon: 0x22293d, night: 1, ground: 0x28252b, hemi: 0.48, sun: 0x8d9bb8, sunPower: 0.08, ambient: 0x526079, ambientPower: 0.2, fog: 0x272d3c, fogPower: 0.0062, lantern: 2.05 },
+                { time: 0.25, sky: 0xe0a77e, skyTop: 0x657f9a, horizon: 0xe0a77e, night: 0, ground: 0x514332, hemi: 0.76, sun: 0xf0b57d, sunPower: 0.72, ambient: 0x907663, ambientPower: 0.3, fog: 0xaa8878, fogPower: 0.0045, lantern: 1.35 },
+                { time: 0.5, sky: 0xe5edf0, skyTop: 0x567eae, horizon: 0xcbd8df, night: 0, ground: 0x51483a, hemi: 1.15, sun: 0xffe2bb, sunPower: 1.55, ambient: 0xd5d1c3, ambientPower: 0.32, fog: 0xb9c2b6, fogPower: 0.0032, lantern: 0.28 },
+                { time: 0.75, sky: 0xd3896e, skyTop: 0x4d5578, horizon: 0xd3896e, night: 0, ground: 0x443532, hemi: 0.72, sun: 0xe78361, sunPower: 0.68, ambient: 0x816d68, ambientPower: 0.29, fog: 0x9c746f, fogPower: 0.0047, lantern: 1.45 },
+                { time: 1, sky: 0x172235, skyTop: 0x070e20, horizon: 0x22293d, night: 1, ground: 0x28252b, hemi: 0.48, sun: 0x8d9bb8, sunPower: 0.08, ambient: 0x526079, ambientPower: 0.2, fog: 0x272d3c, fogPower: 0.0062, lantern: 2.05 }
+            ].map(phase => ({
+                ...phase,
+                skyColor: new THREE.Color(phase.sky),
+                skyTopColor: new THREE.Color(phase.skyTop),
+                horizonColor: new THREE.Color(phase.horizon),
+                groundColor: new THREE.Color(phase.ground),
+                sunColor: new THREE.Color(phase.sun),
+                ambientColor: new THREE.Color(phase.ambient),
+                fogColor: new THREE.Color(phase.fog)
+            }));
+            worldAtmosphere = { hemiLight, ambientLight, phases: atmospherePhases, elapsed: 0, cycle: 0 };
             const rimLight = new THREE.DirectionalLight(0x9ac3d2, 0.3);
             rimLight.position.set(16, 10, -18);
             scene.add(rimLight);
@@ -1980,10 +2055,53 @@
             });
         }
 
+        function updateWorldAtmosphere(elapsedTime) {
+            if (!worldAtmosphere) return;
+            const cycle = (elapsedTime / 720 + 0.2) % 1;
+            const phases = worldAtmosphere.phases;
+            let phaseIndex = 0;
+            while (phaseIndex < phases.length - 1 && cycle > phases[phaseIndex + 1].time) phaseIndex++;
+            const from = phases[phaseIndex];
+            const to = phases[phaseIndex + 1];
+            const rawBlend = (cycle - from.time) / (to.time - from.time);
+            const blend = rawBlend * rawBlend * (3 - 2 * rawBlend);
+            const { hemiLight, ambientLight } = worldAtmosphere;
+            hemiLight.color.lerpColors(from.skyColor, to.skyColor, blend);
+            hemiLight.groundColor.lerpColors(from.groundColor, to.groundColor, blend);
+            hemiLight.intensity = THREE.MathUtils.lerp(from.hemi, to.hemi, blend);
+            directionalSunLight.color.lerpColors(from.sunColor, to.sunColor, blend);
+            directionalSunLight.intensity = THREE.MathUtils.lerp(from.sunPower, to.sunPower, blend);
+            ambientLight.color.lerpColors(from.ambientColor, to.ambientColor, blend);
+            ambientLight.intensity = THREE.MathUtils.lerp(from.ambientPower, to.ambientPower, blend);
+            scene.fog.color.lerpColors(from.fogColor, to.fogColor, blend);
+            scene.fog.density = THREE.MathUtils.lerp(from.fogPower, to.fogPower, blend);
+            worldAtmosphere.lanternIntensity = THREE.MathUtils.lerp(from.lantern, to.lantern, blend);
+            const skyUniforms = worldSkyDome.material.uniforms;
+            skyUniforms.topColor.value.lerpColors(from.skyTopColor, to.skyTopColor, blend);
+            skyUniforms.horizonColor.value.lerpColors(from.horizonColor, to.horizonColor, blend);
+            skyUniforms.nightFactor.value = THREE.MathUtils.lerp(from.night, to.night, blend);
+            skyUniforms.sunColor.value.copy(directionalSunLight.color);
+            const sunAngle = cycle * Math.PI * 2 - Math.PI / 2;
+            directionalSunLight.position.set(Math.cos(sunAngle) * 34, Math.max(3, Math.sin(sunAngle) * 38), 24);
+            skyUniforms.sunDirection.value.copy(directionalSunLight.position).normalize();
+            skyUniforms.elapsedTime.value = elapsedTime;
+            worldSkyDome.position.copy(camera.position);
+            worldAtmosphere.elapsed = elapsedTime;
+            worldAtmosphere.cycle = cycle;
+            const worldMinute = Math.floor(cycle * 1440) % 1440;
+            if (worldMinute !== worldAtmosphere.displayedMinute) {
+                const clock = document.getElementById('world-clock');
+                if (clock) clock.textContent = `${String(Math.floor(worldMinute / 60)).padStart(2, '0')}:${String(worldMinute % 60).padStart(2, '0')}`;
+                worldAtmosphere.displayedMinute = worldMinute;
+            }
+        }
+
         function animateVillage(elapsedTime) {
+            updateWorldAtmosphere(elapsedTime);
             updateVillageMonsters(elapsedTime);
             villageLanternLights.forEach((light, index) => {
-                light.intensity = 1.05 + Math.sin(elapsedTime * 3.4 + index * 1.7) * 0.14 + Math.sin(elapsedTime * 7.1 + index) * 0.05;
+                const lanternLevel = worldAtmosphere?.lanternIntensity ?? 1.05;
+                light.intensity = lanternLevel + Math.sin(elapsedTime * 3.4 + index * 1.7) * 0.14 + Math.sin(elapsedTime * 7.1 + index) * 0.05;
             });
             villageWaterMeshes.forEach((water, index) => {
                 water.material.opacity = 0.82 + Math.sin(elapsedTime * 1.8 + index) * 0.06;
