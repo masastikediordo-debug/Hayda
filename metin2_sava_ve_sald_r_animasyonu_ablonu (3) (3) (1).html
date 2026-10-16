@@ -344,7 +344,7 @@
             </div>
             <div class="min-w-0 flex-1">
                 <div class="mb-2 flex items-end justify-between gap-2">
-                    <div class="min-w-0"><div class="hud-kicker">MAVİ BAYRAK <span class="text-stone-500">/ SAVAŞÇI</span></div><h1 class="truncate font-rpg text-[15px] leading-tight text-stone-100">KaraTuran <span class="text-[10px] text-stone-400">Lv. 1</span></h1></div>
+                    <div class="min-w-0"><div class="hud-kicker">MAVİ BAYRAK <span class="text-stone-500">/ SAVAŞÇI</span></div><h1 class="truncate font-rpg text-[15px] leading-tight text-stone-100">KaraTuran <span id="char-level-text" class="text-[10px] text-stone-400">Lv. 1</span></h1></div>
                     <span id="aura-badge" class="hidden shrink-0 text-[9px] text-amber-300">Hava Kılıcı</span>
                 </div>
                 <div class="mb-1 flex items-center gap-2"><span class="w-5 text-[8px] font-bold text-red-200">HP</span><div class="hud-meter flex-1"><span id="hp-meter-value" class="bg-gradient-to-r from-red-950 via-red-700 to-rose-500" style="width:100%"></span></div><span id="hp-value" class="w-12 text-right text-[8px] text-stone-300">100 / 100</span></div>
@@ -375,7 +375,7 @@
     </aside>
 
     <aside id="monster-target-panel" class="hidden hud-frame fixed right-3 top-[294px] z-20 w-[190px] p-2.5 pointer-events-none">
-        <div class="flex items-center justify-between"><span class="hud-kicker">HEDEF</span><span id="monster-target-level" class="text-[8px] text-stone-400"></span></div>
+        <div class="flex items-center justify-between"><span id="monster-target-heading" class="hud-kicker">HEDEF</span><span id="monster-target-level" class="text-[8px] text-stone-400"></span></div>
         <h2 id="monster-target-name" class="mt-1 font-rpg text-[11px] text-rose-100"></h2>
         <div class="mt-1.5 hud-meter"><span id="monster-target-hp" class="bg-gradient-to-r from-red-950 via-red-700 to-rose-500" style="width:100%"></span></div>
         <div class="mt-1 flex justify-between text-[8px] text-stone-400"><span>HP</span><span id="monster-target-hp-text"></span></div>
@@ -408,7 +408,7 @@
                     <div class="flex h-9 w-9 items-center justify-center border border-amber-700/70 bg-stone-950 text-amber-300">
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
                     </div>
-                    <div><h2 id="inventory-title" class="font-rpg text-base text-amber-100">Karakter</h2><p class="text-[10px] text-stone-400">Savaşçı · Seviye 1 · Mavi Bayrak</p></div>
+                    <div><h2 id="inventory-title" class="font-rpg text-base text-amber-100">Karakter</h2><p id="inventory-level-text" class="text-[10px] text-stone-400">Savaşçı · Seviye 1 · Mavi Bayrak</p></div>
                 </div>
                 <button id="inventory-close-btn" onclick="toggleInventory(false)" class="flex h-8 w-8 items-center justify-center border border-stone-700 text-stone-400 hover:border-amber-500 hover:text-amber-100" title="Kapat" aria-label="Envanteri kapat">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
@@ -619,7 +619,9 @@
             runeTimer: 0,
             vortexTimer: 0,
             monsterKills: 0,
-            playerExp: 38
+            playerExp: 38,
+            playerLevel: 1,
+            expToNext: 100
         };
 
         const camState = {
@@ -796,7 +798,7 @@
             { id: 'potion-green', name: 'Yeşil İksir (K)', type: 'consumable', icon: '⚗', color: '#91d878', count: 3, effect: 'hp', description: 'Canı 15 puan yeniler.' },
             { id: 'upgrade-stone', name: 'Ruh Taşı', type: 'material', icon: '◆', color: '#c28cf2', count: 2, description: 'Ekipman geliştirmede kullanılır.' },
             { id: 'upgrade-scroll', name: 'Demirci Tavsiyesi', type: 'material', icon: '▤', color: '#e3ce91', count: 4, description: 'Yükseltme denemesini korur.' },
-            { id: 'monster-claw', name: 'Kurt Pençesi', type: 'material', icon: '⌁', color: '#c6c0ad', count: 12, description: 'Görev ve üretim malzemesi.' }
+            { id: 'monster-claw', name: 'Canavar Parçası', type: 'material', icon: '⌁', color: '#c6c0ad', count: 12, description: 'Avlardan elde edilen görev ve üretim malzemesi.' }
         ];
         const equippedItems = {
             weapon: 'sword-starter', armor: 'armor-starter', helmet: null, shield: null,
@@ -811,6 +813,7 @@
         ];
         let inventoryFilter = 'all';
         let inventoryHp = 100;
+        let inventoryMaxHp = 100;
         let inventoryMp = 92;
 
         function toggleInventory(forceOpen) {
@@ -913,11 +916,11 @@
                 renderEquipment();
                 renderInventory();
             } else if (item.type === 'consumable') {
-                if (item.effect === 'hp') inventoryHp = Math.min(100, inventoryHp + (item.id === 'potion-green' ? 15 : 30));
+                if (item.effect === 'hp') inventoryHp = Math.min(inventoryMaxHp, inventoryHp + (item.id === 'potion-green' ? 15 : 30));
                 if (item.effect === 'mp') inventoryMp = Math.min(100, inventoryMp + 25);
                 if (item.count > 1) item.count--;
                 else inventoryItems.splice(inventoryItems.indexOf(item), 1);
-                document.getElementById('hp-meter-value').style.width = `${inventoryHp}%`;
+                updatePlayerHealthHud();
                 document.getElementById('mp-meter-value').style.width = `${inventoryMp}%`;
                 message.textContent = `${item.name} kullanıldı.`;
                 renderInventory();
@@ -5805,22 +5808,23 @@
             const c = new THREE.Color(colorHex);
             const emissionAxis = direction ? direction.clone().normalize() : null;
             const spread = new THREE.Vector3();
+            const safeCount = Math.min(count, reducedGraphics ? 8 : 16);
             let spawned = 0;
 
-            for (let i = 0; i < sparkData.length && spawned < count; i++) {
+            for (let i = 0; i < sparkData.length && spawned < safeCount; i++) {
                 const s = sparkData[i];
                 if (s.life <= 0) {
                     s.pos.copy(origin);
-                    const spd = (1.8 + Math.random() * 4.5) * speedScale;
+                    const spd = (1.1 + Math.random() * 2.4) * speedScale;
                     if (emissionAxis) {
-                        spread.set(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5);
-                        s.vel.copy(emissionAxis).addScaledVector(spread, 0.48).normalize().multiplyScalar(spd);
-                        s.vel.y += (1.2 + Math.random() * 2.8) * speedScale;
+                        spread.set((Math.random() - 0.5) * 0.8, (Math.random() - 0.2) * 0.9, (Math.random() - 0.5) * 0.8);
+                        s.vel.copy(emissionAxis).addScaledVector(spread, 0.42).normalize().multiplyScalar(spd * 0.85);
+                        s.vel.y += (0.6 + Math.random() * 1.4) * speedScale;
                     } else {
                         const angle = Math.random() * Math.PI * 2;
-                        s.vel.set(Math.cos(angle) * spd, (2.2 + Math.random() * 4.2) * speedScale, Math.sin(angle) * spd);
+                        s.vel.set(Math.cos(angle) * spd, (0.8 + Math.random() * 1.8) * speedScale, Math.sin(angle) * spd);
                     }
-                    s.maxLife = 0.35 + Math.random() * 0.35;
+                    s.maxLife = 0.18 + Math.random() * 0.18;
                     s.life = s.maxLife;
                     s.color.copy(c);
                     colAttr.setXYZ(i, c.r, c.g, c.b);
@@ -6043,57 +6047,43 @@
                 map: materials.textures.sparkTexture,
                 color: 0xfff3d1,
                 transparent: true,
-                opacity: 0.92,
+                opacity: 0.62,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             }));
-            impactFlare.scale.set(0.58, 0.58, 1);
+            impactFlare.scale.set(0.34, 0.34, 1);
             flashGroup.add(impactFlare);
 
             const impactRing = new THREE.Mesh(
-                new THREE.RingGeometry(0.12, 0.22, 32),
-                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false })
+                new THREE.RingGeometry(0.12, 0.18, 24),
+                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false })
             );
             flashGroup.add(impactRing);
             const innerRing = new THREE.Mesh(
-                new THREE.RingGeometry(0.04, 0.075, 24),
-                new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.96, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false })
+                new THREE.RingGeometry(0.04, 0.06, 18),
+                new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false })
             );
             flashGroup.add(innerRing);
 
-            [-1, 1].forEach((dir, index) => {
-                const beamGeo = new THREE.PlaneGeometry(index === 0 ? 2.25 : 1.62, index === 0 ? 0.14 : 0.1);
-                const beamMat = new THREE.MeshBasicMaterial({
-                    color: index === 0 ? 0xffffff : colorHex,
+            const beam = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.8, 0.08),
+                new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
                     transparent: true,
-                    opacity: index === 0 ? 0.88 : 0.72,
+                    opacity: 0.56,
                     blending: THREE.AdditiveBlending,
                     side: THREE.DoubleSide,
                     depthWrite: false
-                });
-                const beam = new THREE.Mesh(beamGeo, beamMat);
-                beam.rotation.z = dir * (index === 0 ? 0.68 : 0.34) + (Math.random() - 0.5) * 0.2;
-                flashGroup.add(beam);
-
-                const glowGeo = new THREE.PlaneGeometry(2.35, 0.42);
-                const glowMat = new THREE.MeshBasicMaterial({
-                    color: colorHex,
-                    transparent: true,
-                    opacity: 0.80,
-                    blending: THREE.AdditiveBlending,
-                    side: THREE.DoubleSide,
-                    depthWrite: false
-                });
-                const glow = new THREE.Mesh(glowGeo, glowMat);
-                glow.rotation.z = beam.rotation.z;
-                flashGroup.add(glow);
-            });
+                })
+            );
+            beam.rotation.z = (Math.random() - 0.5) * 0.8;
+            flashGroup.add(beam);
 
             flashGroup.traverse(child => {
                 if (child.material) child.material.userData.baseOpacity = child.material.opacity;
             });
             scene.add(flashGroup);
-            activeImpactFlashes.push({ group: flashGroup, age: 0, maxAge: 0.24 });
+            activeImpactFlashes.push({ group: flashGroup, age: 0, maxAge: 0.18 });
         }
 
         function spawnRockDebris(origin, count = 7, colorHex = 0xff5500) {
@@ -6232,38 +6222,187 @@
         function createVillageMonsters() {
             villageMonsters = [];
             discoveredRegions = new Set();
-            const sphereGeometry = new THREE.SphereGeometry(1, 12, 9);
+            const sphereGeometry = new THREE.SphereGeometry(1, 24, 18);
             const stoneGeometry = new THREE.DodecahedronGeometry(1, 1);
             const legGeometry = new THREE.CylinderGeometry(0.12, 0.15, 0.44, 8, 2);
             const footGeometry = new THREE.SphereGeometry(1, 9, 7);
             const clawGeometry = new THREE.ConeGeometry(0.045, 0.18, 6);
+            const hornGeometry = new THREE.ConeGeometry(0.12, 0.5, 9, 2);
+            const spikeGeometry = new THREE.ConeGeometry(0.1, 0.38, 7, 2);
             const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.76 });
             const eyeMaterials = {
                 wolf: new THREE.MeshStandardMaterial({ color: 0xf1c66b, emissive: 0x5a320e, emissiveIntensity: 0.42, roughness: 0.3 }),
                 bear: new THREE.MeshStandardMaterial({ color: 0xb8d66b, emissive: 0x435b17, emissiveIntensity: 0.36, roughness: 0.3 }),
-                golem: new THREE.MeshStandardMaterial({ color: 0xff8c3c, emissive: 0xff4c0b, emissiveIntensity: 1.5, roughness: 0.26 })
+                golem: new THREE.MeshStandardMaterial({ color: 0xff8c3c, emissive: 0xff4c0b, emissiveIntensity: 1.5, roughness: 0.26 }),
+                tiger: new THREE.MeshStandardMaterial({ color: 0xe7c46b, emissive: 0x61410d, emissiveIntensity: 0.42, roughness: 0.28 }),
+                demon: new THREE.MeshStandardMaterial({ color: 0xf24532, emissive: 0x7a140d, emissiveIntensity: 0.92, roughness: 0.24 }),
+                dragon: new THREE.MeshStandardMaterial({ color: 0x77e8d2, emissive: 0x126f70, emissiveIntensity: 1.1, roughness: 0.2 }),
+                sandScorpion: new THREE.MeshStandardMaterial({ color: 0xffd071, emissive: 0x9a4c12, emissiveIntensity: 0.8, roughness: 0.24 }),
+                duneSerpent: new THREE.MeshStandardMaterial({ color: 0xf4d579, emissive: 0x68711b, emissiveIntensity: 0.7, roughness: 0.24 }),
+                sandRaider: new THREE.MeshStandardMaterial({ color: 0xe8bd65, emissive: 0x694411, emissiveIntensity: 0.42, roughness: 0.28 }),
+                orcScout: new THREE.MeshStandardMaterial({ color: 0xf2d278, emissive: 0x67501c, emissiveIntensity: 0.5, roughness: 0.26 }),
+                orcBrute: new THREE.MeshStandardMaterial({ color: 0xff873c, emissive: 0x8c290b, emissiveIntensity: 0.75, roughness: 0.22 }),
+                orcShaman: new THREE.MeshStandardMaterial({ color: 0x8affd1, emissive: 0x1a8d70, emissiveIntensity: 0.92, roughness: 0.2 }),
+                venomSpider: new THREE.MeshStandardMaterial({ color: 0x8eff5b, emissive: 0x38a81e, emissiveIntensity: 1.2, roughness: 0.18 }),
+                caveSpider: new THREE.MeshStandardMaterial({ color: 0xffc576, emissive: 0x9b5122, emissiveIntensity: 0.62, roughness: 0.24 }),
+                spiderMatriarch: new THREE.MeshStandardMaterial({ color: 0xff788d, emissive: 0xc51e50, emissiveIntensity: 1.2, roughness: 0.18 })
             };
+            function makeCreatureTexture(type) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const context = canvas.getContext('2d');
+                const base = type === 'tiger' ? '#c88737' : type === 'dragon' ? '#266f68' : type === 'demon' ? '#73352c' : type === 'golem' ? '#77766b' : type === 'bear' ? '#65432f' : type === 'sandScorpion' ? '#ad6c35' : type === 'duneSerpent' ? '#6d8c42' : type === 'sandRaider' ? '#8f6742' : type.startsWith('orc') ? '#4d6940' : type === 'venomSpider' ? '#385442' : type === 'caveSpider' ? '#67513d' : type === 'spiderMatriarch' ? '#542b3c' : '#77766e';
+                context.fillStyle = base;
+                context.fillRect(0, 0, 256, 256);
+                for (let index = 0; index < 900; index++) {
+                    context.fillStyle = Math.random() > 0.5 ? 'rgba(255,235,190,.10)' : 'rgba(8,10,10,.12)';
+                    context.beginPath();
+                    context.ellipse(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 5, 1 + Math.random() * 3, Math.random() * Math.PI, 0, Math.PI * 2);
+                    context.fill();
+                }
+                if (type === 'tiger') {
+                    context.strokeStyle = 'rgba(28,19,15,.9)';
+                    context.lineWidth = 13;
+                    for (let index = -2; index < 9; index++) {
+                        context.beginPath();
+                        context.moveTo(index * 42, 0);
+                        context.bezierCurveTo(index * 42 + 48, 70, index * 42 - 22, 160, index * 42 + 30, 256);
+                        context.stroke();
+                    }
+                } else if (type === 'dragon' || type === 'duneSerpent' || type.toLowerCase().includes('spider')) {
+                    context.strokeStyle = 'rgba(10,37,39,.46)';
+                    context.lineWidth = 2;
+                    for (let y = 8; y < 256; y += 14) for (let x = (y % 28) * 0.5; x < 256; x += 18) {
+                        context.beginPath();
+                        context.arc(x, y, 7, 0.15, Math.PI - 0.15);
+                        context.stroke();
+                    }
+                } else if (type === 'sandScorpion') {
+                    context.strokeStyle = 'rgba(67,35,17,.6)';
+                    context.lineWidth = 5;
+                    for (let y = 22; y < 256; y += 34) {
+                        context.beginPath();
+                        context.moveTo(0, y);
+                        context.lineTo(256, y + 12);
+                        context.stroke();
+                    }
+                } else if (type === 'golem') {
+                    context.strokeStyle = 'rgba(30,20,14,.72)';
+                    context.lineWidth = 3;
+                    for (let index = 0; index < 18; index++) {
+                        const x = 12 + Math.random() * 232;
+                        const y = 12 + Math.random() * 232;
+                        context.beginPath();
+                        context.moveTo(x, y);
+                        context.lineTo(x + (Math.random() - 0.5) * 34, y + 12 + Math.random() * 30);
+                        context.lineTo(x + (Math.random() - 0.5) * 48, y + 34 + Math.random() * 42);
+                        context.stroke();
+                    }
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.encoding = THREE.sRGBEncoding;
+                return texture;
+            }
+            const creatureTextures = Object.fromEntries(['wolf', 'bear', 'golem', 'tiger', 'demon', 'dragon', 'sandScorpion', 'duneSerpent', 'sandRaider', 'orcScout', 'orcBrute', 'orcShaman', 'venomSpider', 'caveSpider', 'spiderMatriarch'].map(type => [type, makeCreatureTexture(type)]));
             const materialsByType = {
                 wolf: {
-                    hide: new THREE.MeshStandardMaterial({ color: 0x77756e, roughness: 0.96 }),
+                    hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.wolf, roughness: 0.96 }),
                     light: new THREE.MeshStandardMaterial({ color: 0xb7aa8e, roughness: 0.98 }),
                     dark: new THREE.MeshStandardMaterial({ color: 0x403e3a, roughness: 0.94 })
                 },
                 bear: {
-                    hide: new THREE.MeshStandardMaterial({ color: 0x53372a, roughness: 0.96 }),
+                    hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.bear, roughness: 0.96 }),
                     light: new THREE.MeshStandardMaterial({ color: 0x846047, roughness: 0.98 }),
                     dark: new THREE.MeshStandardMaterial({ color: 0x2b201c, roughness: 0.94 })
                 },
                 golem: {
-                    hide: new THREE.MeshStandardMaterial({ color: 0x5d625d, roughness: 0.99, flatShading: true }),
+                    hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.golem, roughness: 0.99, flatShading: true }),
                     light: new THREE.MeshStandardMaterial({ color: 0x87877b, roughness: 0.98, flatShading: true }),
                     dark: new THREE.MeshStandardMaterial({ color: 0x313b38, roughness: 0.94, flatShading: true })
                 }
             };
+            materialsByType.tiger = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.tiger, roughness: 0.86 }),
+                light: new THREE.MeshStandardMaterial({ color: 0xe6d5ad, roughness: 0.94 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x241b17, roughness: 0.92 })
+            };
+            materialsByType.demon = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.demon, roughness: 0.84 }),
+                light: new THREE.MeshStandardMaterial({ color: 0x9d4a35, roughness: 0.88 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x251a1b, metalness: 0.32, roughness: 0.48 })
+            };
+            materialsByType.dragon = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.dragon, roughness: 0.3, metalness: 0.18 }),
+                light: new THREE.MeshStandardMaterial({ color: 0x8fd3bd, roughness: 0.38, metalness: 0.12 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x173d3a, roughness: 0.42, metalness: 0.16 })
+            };
+            function makeCreatureMaterials(type, lightColor, darkColor, roughness = 0.88) {
+                return {
+                    hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures[type], roughness }),
+                    light: new THREE.MeshStandardMaterial({ color: lightColor, roughness: Math.min(0.98, roughness + 0.08) }),
+                    dark: new THREE.MeshStandardMaterial({ color: darkColor, roughness: Math.min(0.98, roughness + 0.04) })
+                };
+            }
+            Object.assign(materialsByType, {
+                sandScorpion: makeCreatureMaterials('sandScorpion', 0xe3ae5a, 0x352218, 0.34),
+                duneSerpent: makeCreatureMaterials('duneSerpent', 0xc6d98c, 0x354327, 0.32),
+                sandRaider: makeCreatureMaterials('sandRaider', 0xd8bd8c, 0x39291e, 0.62),
+                orcScout: makeCreatureMaterials('orcScout', 0x87965d, 0x392e25, 0.76),
+                orcBrute: makeCreatureMaterials('orcBrute', 0xa49a66, 0x312920, 0.72),
+                orcShaman: makeCreatureMaterials('orcShaman', 0x4d7665, 0x272c2b, 0.54),
+                venomSpider: makeCreatureMaterials('venomSpider', 0x9ad878, 0x252b27, 0.36),
+                caveSpider: makeCreatureMaterials('caveSpider', 0xc9a37a, 0x30251e, 0.42),
+                spiderMatriarch: makeCreatureMaterials('spiderMatriarch', 0x9d5460, 0x251b25, 0.3)
+            });
+            creatureTextures.sandEmpress = creatureTextures.sandScorpion;
+            materialsByType.sandEmpress = materialsByType.sandScorpion;
+            eyeMaterials.sandEmpress = eyeMaterials.sandScorpion;
+            creatureTextures.orcWarlord = creatureTextures.orcBrute;
+            materialsByType.orcWarlord = materialsByType.orcBrute;
+            eyeMaterials.orcWarlord = eyeMaterials.orcBrute;
+            const wingMembraneMaterial = new THREE.MeshStandardMaterial({ color: 0x28625c, roughness: 0.52, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
             const definitions = {
                 wolf: { name: 'Aç Kurt', level: 5, hp: 72, speed: 2.05, damage: 5, aggro: 11.5, reach: 1.55, attackRate: 1.35, scale: 0.88, xp: 3 },
                 bear: { name: 'Kara Ayı', level: 12, hp: 148, speed: 1.12, damage: 11, aggro: 9.5, reach: 1.9, attackRate: 1.75, scale: 1.12, xp: 6 },
-                golem: { name: 'Taş Muhafız', level: 18, hp: 235, speed: 0.78, damage: 16, aggro: 10.5, reach: 2.15, attackRate: 2.1, scale: 1.18, xp: 10 }
+                golem: { name: 'Taş Muhafız', level: 18, hp: 235, speed: 0.78, damage: 16, aggro: 10.5, reach: 2.15, attackRate: 2.1, scale: 1.18, xp: 10 },
+                tiger: { name: 'Kanlı Kaplan', level: 26, hp: 310, speed: 2.25, damage: 21, aggro: 13, reach: 1.75, attackRate: 1.25, scale: 1.08, xp: 14 },
+                demon: { name: 'Karanlık Savaşçı', level: 35, hp: 490, speed: 1.38, damage: 29, aggro: 14, reach: 2.25, attackRate: 1.55, scale: 1.24, xp: 21 },
+                dragon: { name: 'Buz Ejderhası', level: 48, hp: 780, speed: 1.72, damage: 42, aggro: 16, reach: 2.8, attackRate: 1.8, scale: 1.62, xp: 32 },
+                sandScorpion: { name: 'Kum Akrebi', level: 24, hp: 280, speed: 1.25, damage: 18, aggro: 12, reach: 1.8, attackRate: 1.7, scale: 1.02, xp: 13 },
+                duneSerpent: { name: 'Kumul Yılanı', level: 25, hp: 320, speed: 1.62, damage: 20, aggro: 13, reach: 1.9, attackRate: 1.45, scale: 1.08, xp: 14 },
+                sandRaider: { name: 'Çöl Akıncısı', level: 28, hp: 360, speed: 1.58, damage: 23, aggro: 12, reach: 2.05, attackRate: 1.55, scale: 1.1, xp: 16 },
+                orcScout: { name: 'Ork İzci', level: 40, hp: 520, speed: 1.8, damage: 31, aggro: 14, reach: 2, attackRate: 1.35, scale: 1.12, xp: 23 },
+                orcBrute: { name: 'Ork Kasabı', level: 42, hp: 690, speed: 1.12, damage: 39, aggro: 13, reach: 2.35, attackRate: 1.75, scale: 1.28, xp: 27 },
+                orcShaman: { name: 'Ork Şamanı', level: 44, hp: 610, speed: 1.06, damage: 43, aggro: 15, reach: 2.6, attackRate: 1.9, scale: 1.18, xp: 29 },
+                venomSpider: { name: 'Zehir Örümceği', level: 55, hp: 910, speed: 1.68, damage: 48, aggro: 15, reach: 2.2, attackRate: 1.35, scale: 1.18, xp: 38 },
+                caveSpider: { name: 'Mağara Örümceği', level: 58, hp: 1080, speed: 1.34, damage: 54, aggro: 14, reach: 2.4, attackRate: 1.65, scale: 1.3, xp: 44 },
+                spiderMatriarch: { name: 'Kara Dul Kraliçesi', level: 62, hp: 2350, speed: 1.12, damage: 68, aggro: 20, reach: 12, attackRate: 2.3, scale: 1.58, xp: 110 },
+                sandEmpress: { name: 'Kum İmparatoriçesi', level: 32, hp: 1750, speed: 1.12, damage: 48, aggro: 20, reach: 11, attackRate: 2.1, scale: 1.78, xp: 82 },
+                orcWarlord: { name: 'Kızıl Ork Hükümdarı', level: 50, hp: 2200, speed: 1.02, damage: 64, aggro: 22, reach: 12, attackRate: 2.2, scale: 1.78, xp: 100 },
+                dragon: { name: 'Buz Ejderhası', level: 48, hp: 2200, speed: 1.42, damage: 58, aggro: 22, reach: 14, attackRate: 2.15, scale: 1.82, xp: 96 }
+            };
+            const bossSkillSets = {
+                sandEmpress: [
+                    { name: 'Kum Çöküşü', kind: 'circle', range: 12, radius: 6.2, windup: 1.25, damage: 1.45, cooldown: 2.6, color: 0xeab45c, warning: 'Kum dalgası yaklaşıyor' },
+                    { name: 'Kuyruk Delişi', kind: 'line', range: 11, width: 2.4, windup: 0.9, damage: 1.7, cooldown: 2.3, color: 0xff7058, warning: 'Kuyruk hücumundan sıyrıl' },
+                    { name: 'Zehirli Halka', kind: 'circle', range: 13, radius: 4.1, windup: 0.75, damage: 1.05, cooldown: 2.1, color: 0x8de35e, warning: 'Zehirli zeminden uzaklaş' }
+                ],
+                orcWarlord: [
+                    { name: 'Kızıl Balta', kind: 'line', range: 12, width: 3.2, windup: 1.05, damage: 1.8, cooldown: 2.6, color: 0xff8554, warning: 'Balta hattından çık' },
+                    { name: 'Yer Sarsıntısı', kind: 'circle', range: 12, radius: 7, windup: 1.4, damage: 1.35, cooldown: 3, color: 0xeeb75c, warning: 'Darbe alanını terk et' },
+                    { name: 'Savaş Narası', kind: 'circle', range: 10, radius: 5, windup: 0.8, damage: 1.15, cooldown: 2.2, color: 0xff554e, warning: 'Hükümdarın öfkesinden kaç' }
+                ],
+                dragon: [
+                    { name: 'Buz Alevi', kind: 'cone', range: 15, angle: 0.46, windup: 1.35, damage: 1.75, cooldown: 3, color: 0x75e9f5, warning: 'Nefes hattından uzaklaş' },
+                    { name: 'Kanat Fırtınası', kind: 'circle', range: 12, radius: 8, windup: 1.1, damage: 1.35, cooldown: 2.5, color: 0x8caeff, warning: 'Kanat darbesi geliyor' },
+                    { name: 'Buzul Patlaması', kind: 'circle', range: 16, radius: 4.8, windup: 0.95, damage: 1.55, cooldown: 2.7, color: 0x8bf3ff, warning: 'Buz patlamasından kaç' }
+                ],
+                spiderMatriarch: [
+                    { name: 'Örümcek Ağı', kind: 'line', range: 12, width: 2.2, windup: 0.8, damage: 1.15, cooldown: 2.2, color: 0xd9c5a2, warning: 'Ağ çizgisinden sıyrıl' },
+                    { name: 'Asit Havuzu', kind: 'circle', range: 14, radius: 4.6, windup: 1, damage: 1.45, cooldown: 2.5, color: 0x8cfa63, warning: 'Asit alanını terk et' },
+                    { name: 'Kara Dul Sıçrayışı', kind: 'circle', range: 15, radius: 5.5, windup: 1.15, damage: 1.65, cooldown: 2.8, color: 0xec5f94, warning: 'Sıçrama inişinden kaç' }
+                ]
             };
             const labelMaterials = {};
 
@@ -6271,20 +6410,23 @@
                 if (labelMaterials[type]) return labelMaterials[type];
                 const canvas = document.createElement('canvas');
                 canvas.width = 320;
-                canvas.height = 64;
+                canvas.height = 84;
                 const context = canvas.getContext('2d');
                 context.fillStyle = 'rgba(10, 12, 12, 0.82)';
                 context.beginPath();
-                context.roundRect(2, 2, 316, 60, 12);
+                context.roundRect(2, 2, 316, 80, 12);
                 context.fill();
-                context.strokeStyle = type === 'golem' ? 'rgba(231, 113, 63, .84)' : 'rgba(208, 180, 126, .72)';
+                context.strokeStyle = type === 'spiderMatriarch' ? 'rgba(234, 91, 112, .94)' : type === 'golem' || type === 'orcBrute' ? 'rgba(231, 113, 63, .84)' : 'rgba(208, 180, 126, .72)';
                 context.lineWidth = 3;
                 context.stroke();
                 context.fillStyle = '#f1e6cd';
-                context.font = 'bold 29px Georgia';
+                context.font = `bold ${definitions[type].name.length > 16 ? 21 : 25}px Georgia`;
                 context.textAlign = 'center';
-                context.textBaseline = 'middle';
-                context.fillText(definitions[type].name, 160, 31);
+                context.textBaseline = 'alphabetic';
+                context.fillText(definitions[type].name, 160, 36);
+                context.fillStyle = '#edc978';
+                context.font = 'bold 18px Georgia';
+                context.fillText(`SEVİYE ${definitions[type].level}`, 160, 66);
                 labelMaterials[type] = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false });
                 return labelMaterials[type];
             }
@@ -6312,6 +6454,17 @@
 
                 const legs = [];
                 const arms = [];
+                const wings = [];
+                const isDemon = type === 'demon';
+                const isDragon = type === 'dragon';
+                const isFeline = type === 'tiger';
+                const isScorpion = type === 'sandScorpion' || type === 'sandEmpress';
+                const isSpider = type.toLowerCase().includes('spider');
+                const isOrc = type.startsWith('orc');
+                const isSandRaider = type === 'sandRaider';
+                const isSerpent = type === 'duneSerpent';
+                const isHumanoid = isDemon || isOrc || isSandRaider || isSerpent;
+                const isBoss = Boolean(bossSkillSets[type]);
                 let head;
                 let tail;
                 if (type === 'golem') {
@@ -6337,35 +6490,164 @@
                         legs.push(leg);
                     });
                     [-1, 1].forEach(side => addMonsterMesh(body, stoneGeometry, material.dark, [side * 0.48, 1.76, -0.04], [0.31, 0.3, 0.34]));
+                } else if (isScorpion) {
+                    addMonsterMesh(body, sphereGeometry, material.hide, [0, 0.62, 0.02], [0.38, 0.31, 0.48]);
+                    addMonsterMesh(body, sphereGeometry, material.dark, [0, 0.68, -0.42], [0.47, 0.42, 0.56]);
+                    addMonsterMesh(body, sphereGeometry, material.light, [0, 0.94, -0.42], [0.4, 0.22, 0.46]);
+                    head = new THREE.Group();
+                    head.position.set(0, 0.63, 0.43);
+                    body.add(head);
+                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.06], [0.28, 0.22, 0.3]);
+                    [-1, 1].forEach(side => {
+                        addMonsterMesh(head, sphereGeometry, eyeMaterials[type], [side * 0.14, 0.1, 0.27], [0.06, 0.055, 0.045]);
+                        const claw = new THREE.Group();
+                        claw.position.set(side * 0.4, 0.58, 0.38);
+                        body.add(claw);
+                        addMonsterMesh(claw, sphereGeometry, material.light, [side * 0.1, 0, 0.12], [0.15, 0.12, 0.28]);
+                        addMonsterMesh(claw, clawGeometry, material.dark, [side * 0.2, -0.02, 0.34], [0.9, 1.1, 0.9]);
+                        arms.push(claw);
+                    });
+                    tail = new THREE.Group();
+                    tail.position.set(0, 0.88, -0.66);
+                    body.add(tail);
+                    for (let index = 0; index < 4; index++) {
+                        addMonsterMesh(tail, sphereGeometry, index % 2 ? material.light : material.hide, [0, index * 0.12, -index * 0.16], [0.16 - index * 0.018, 0.15 - index * 0.015, 0.19]);
+                    }
+                    const stinger = addMonsterMesh(tail, hornGeometry, material.dark, [0, 0.56, -0.55], [0.8, 0.95, 0.8]);
+                    stinger.rotation.x = Math.PI / 2;
+                    [-1, 1].forEach(side => [0, 1, 2].forEach(index => {
+                        const leg = new THREE.Group();
+                        leg.position.set(side * 0.34, 0.52, 0.3 - index * 0.29);
+                        body.add(leg);
+                        const upper = addMonsterMesh(leg, legGeometry, material.hide, [side * 0.12, -0.04, 0], [0.78, 0.95, 0.8]);
+                        upper.rotation.z = side * -0.76;
+                        const lower = addMonsterMesh(leg, legGeometry, material.dark, [side * 0.32, -0.2, 0.03], [0.62, 0.8, 0.65]);
+                        lower.rotation.z = side * 0.72;
+                        legs.push(leg);
+                    }));
+                } else if (isSpider) {
+                    addMonsterMesh(body, sphereGeometry, material.hide, [0, 0.72, -0.34], [0.48, 0.43, 0.58]);
+                    addMonsterMesh(body, sphereGeometry, material.light, [0, 0.65, -0.38], [0.25, 0.31, 0.4]);
+                    head = new THREE.Group();
+                    head.position.set(0, 0.7, 0.34);
+                    body.add(head);
+                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.03], [0.3, 0.28, 0.34]);
+                    for (let row = 0; row < 2; row++) for (let side = -1; side <= 1; side++) {
+                        addMonsterMesh(head, sphereGeometry, eyeMaterials[type], [side * (row ? 0.17 : 0.1), 0.08 + row * 0.09, 0.3 - row * 0.06], [row ? 0.045 : 0.065, row ? 0.045 : 0.065, 0.035]);
+                    }
+                    [-1, 1].forEach(side => {
+                        const fang = addMonsterMesh(head, clawGeometry, material.light, [side * 0.12, -0.22, 0.29], [0.85, 1.35, 0.85]);
+                        fang.rotation.x = Math.PI;
+                    });
+                    [-1, 1].forEach(side => [0, 1, 2, 3].forEach(index => {
+                        const leg = new THREE.Group();
+                        leg.position.set(side * 0.25, 0.68, 0.3 - index * 0.23);
+                        body.add(leg);
+                        const upper = addMonsterMesh(leg, legGeometry, material.hide, [side * 0.19, -0.04, 0], [0.58, 1.05, 0.62]);
+                        upper.rotation.z = side * -0.9;
+                        const lower = addMonsterMesh(leg, legGeometry, material.dark, [side * 0.42, -0.35, 0.04], [0.48, 1.05, 0.5]);
+                        lower.rotation.z = side * 0.92;
+                        legs.push(leg);
+                    }));
+                } else if (isHumanoid) {
+                    addMonsterMesh(body, sphereGeometry, material.hide, [0, 1.24, 0], [0.48, 0.68, 0.32]);
+                    addMonsterMesh(body, sphereGeometry, material.dark, [0, 1.38, 0.11], [0.58, 0.38, 0.36]);
+                    addMonsterMesh(body, sphereGeometry, material.light, [0, 1.19, 0.31], [0.29, 0.47, 0.08]);
+                    head = new THREE.Group();
+                    head.position.set(0, 2.03, 0.02);
+                    body.add(head);
+                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.03], [0.31, 0.38, 0.3]);
+                    addMonsterMesh(head, sphereGeometry, material.dark, [0, -0.17, 0.2], [0.23, 0.16, 0.2]);
+                    [-1, 1].forEach(side => {
+                        if (isDemon) {
+                            const horn = addMonsterMesh(head, hornGeometry, material.dark, [side * 0.22, 0.34, -0.01], [0.78, 0.95, 0.78]);
+                            horn.rotation.z = side * -0.48;
+                        }
+                        addMonsterMesh(head, sphereGeometry, eyeMaterials[type], [side * 0.13, 0.02, 0.28], [0.05, 0.045, 0.035]);
+                        if (isOrc) {
+                            const tusk = addMonsterMesh(head, hornGeometry, material.light, [side * 0.16, -0.22, 0.3], [0.4, 0.55, 0.4]);
+                            tusk.rotation.z = side * 0.28;
+                        }
+                        const arm = new THREE.Group();
+                        arm.position.set(side * 0.55, 1.66, 0.02);
+                        body.add(arm);
+                        addMonsterMesh(arm, sphereGeometry, material.hide, [side * 0.08, -0.28, 0], [0.21, 0.39, 0.22]);
+                        addMonsterMesh(arm, sphereGeometry, material.dark, [side * 0.12, -0.61, 0.12], [0.18, 0.2, 0.2]);
+                        if (side === 1) {
+                            if (type === 'orcBrute') {
+                                const haft = addMonsterMesh(arm, new THREE.CylinderGeometry(0.035, 0.045, 1.25, 7), material.light, [0.18, -1.02, 0.12]);
+                                haft.rotation.z = -0.28;
+                                const axeHead = addMonsterMesh(arm, new THREE.BoxGeometry(0.42, 0.32, 0.09), material.dark, [0.35, -0.48, 0.12]);
+                                axeHead.rotation.z = -0.28;
+                            } else if (type === 'orcShaman') {
+                                const staff = addMonsterMesh(arm, new THREE.CylinderGeometry(0.035, 0.06, 1.45, 7), material.dark, [0.14, -1.02, 0.1]);
+                                staff.rotation.z = -0.15;
+                                addMonsterMesh(arm, sphereGeometry, eyeMaterials.orcShaman, [0.12, -0.28, 0.1], [0.16, 0.16, 0.16]);
+                            } else {
+                                const blade = addMonsterMesh(arm, new THREE.BoxGeometry(0.1, 1.1, 0.06), material.light, [0.15, -1.08, 0.12]);
+                                blade.rotation.z = -0.28;
+                                const bladeTip = addMonsterMesh(arm, hornGeometry, material.light, [0.3, -0.46, 0.12], [0.5, 0.62, 0.5]);
+                                bladeTip.rotation.z = -0.28;
+                            }
+                        }
+                        arms.push(arm);
+                        const leg = new THREE.Group();
+                        leg.position.set(side * 0.26, 0.82, 0);
+                        body.add(leg);
+                        addMonsterMesh(leg, sphereGeometry, material.hide, [0, -0.35, 0], [0.22, 0.42, 0.25]);
+                        addMonsterMesh(leg, footGeometry, material.dark, [0, -0.7, 0.12], [0.25, 0.13, 0.36]);
+                        legs.push(leg);
+                    });
                 } else {
                     const isBear = type === 'bear';
-                    addMonsterMesh(body, sphereGeometry, material.hide, [0, 0.76, -0.02], isBear ? [0.55, 0.5, 0.72] : [0.4, 0.38, 0.69]);
+                    addMonsterMesh(body, sphereGeometry, material.hide, [0, isDragon ? 0.9 : 0.76, -0.02], isDragon ? [0.52, 0.53, 0.9] : isBear ? [0.55, 0.5, 0.72] : isFeline ? [0.47, 0.4, 0.82] : [0.4, 0.38, 0.69]);
                     addMonsterMesh(body, sphereGeometry, material.light, [0, 0.75, 0.29], isBear ? [0.43, 0.4, 0.42] : [0.31, 0.29, 0.42]);
                     head = new THREE.Group();
-                    head.position.set(0, 0.95, 0.5);
+                    head.position.set(0, isDragon ? 1.14 : 0.95, isDragon ? 0.68 : 0.5);
                     body.add(head);
-                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.06], isBear ? [0.34, 0.34, 0.34] : [0.29, 0.27, 0.33]);
+                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.06], isDragon ? [0.33, 0.28, 0.47] : isBear ? [0.34, 0.34, 0.34] : isFeline ? [0.32, 0.25, 0.4] : [0.29, 0.27, 0.33]);
                     addMonsterMesh(head, sphereGeometry, material.light, [0, -0.12, 0.29], isBear ? [0.21, 0.18, 0.25] : [0.18, 0.13, 0.27]);
                     addMonsterMesh(head, sphereGeometry, noseMaterial, [0, -0.09, 0.51], [0.09, 0.065, 0.07]);
                     [-1, 1].forEach(side => {
-                        addMonsterMesh(head, sphereGeometry, eyeMaterials[type], [side * 0.17, 0.055, 0.31], [0.035, 0.035, 0.022]);
+                        addMonsterMesh(head, sphereGeometry, eyeMaterials[type], [side * 0.17, 0.055, 0.31], isDragon ? [0.055, 0.045, 0.035] : [0.035, 0.035, 0.022]);
                         addMonsterMesh(head, new THREE.ConeGeometry(isBear ? 0.09 : 0.105, isBear ? 0.18 : 0.24, 7), material.dark, [side * (isBear ? 0.23 : 0.205), isBear ? 0.24 : 0.25, -0.015], null);
+                        if (isDragon) {
+                            const horn = addMonsterMesh(head, hornGeometry, material.light, [side * 0.2, 0.27, -0.12], [0.62, 0.72, 0.62]);
+                            horn.rotation.z = side * -0.5;
+                        }
                     });
                     tail = new THREE.Group();
                     tail.position.set(0, 0.84, -0.63);
                     body.add(tail);
                     const tailMesh = addMonsterMesh(tail, sphereGeometry, material.hide, [0, 0, -0.2], isBear ? [0.13, 0.14, 0.28] : [0.11, 0.12, 0.37]);
                     tailMesh.rotation.x = -0.38;
+                    if (isDragon) {
+                        for (let index = 0; index < 5; index++) {
+                            const spike = addMonsterMesh(body, spikeGeometry, material.light, [0, 1.4, -0.42 - index * 0.2], [0.8, 0.9, 0.8]);
+                            spike.rotation.x = -0.28;
+                        }
+                        [-1, 1].forEach(side => {
+                            const wing = new THREE.Group();
+                            wing.position.set(side * 0.34, 1.15, -0.22);
+                            body.add(wing);
+                            const spar = addMonsterMesh(wing, new THREE.CylinderGeometry(0.035, 0.07, 1.16, 7), material.light, [side * 0.4, 0.12, -0.16]);
+                            spar.rotation.z = side * -0.66;
+                            const membrane = addMonsterMesh(wing, new THREE.PlaneGeometry(0.86, 0.72, 5, 4), wingMembraneMaterial, [side * 0.35, -0.12, -0.1]);
+                            membrane.rotation.y = side * -0.35;
+                            membrane.rotation.z = side * -0.28;
+                            wings.push(wing);
+                        });
+                    }
 
                     [-1, 1].forEach(side => {
                         [0.42, -0.42].forEach((z, legIndex) => {
                             const leg = new THREE.Group();
-                            leg.position.set(side * (isBear ? 0.34 : 0.25), 0.58, z);
+                            leg.position.set(side * (isBear ? 0.34 : isDragon ? 0.3 : isFeline ? 0.28 : 0.25), isDragon ? 0.66 : 0.58, z);
                             body.add(leg);
-                            const thickness = isBear ? 0.2 : 0.135;
+                            const thickness = isBear ? 0.2 : isDragon ? 0.17 : isFeline ? 0.16 : 0.135;
                             addMonsterMesh(leg, legGeometry, material.hide, [0, -0.19, 0], [thickness / 0.135, isBear ? 1.12 : 0.9, thickness / 0.15]);
                             addMonsterMesh(leg, footGeometry, material.dark, [0, -0.39, 0.065], [thickness * 1.12, 0.12, thickness * 1.5]);
-                            if (isBear && legIndex === 0) {
+                            if ((isBear || isFeline) && legIndex === 0) {
                                 for (let claw = -1; claw <= 1; claw++) {
                                     const tip = addMonsterMesh(leg, clawGeometry, material.light, [claw * 0.075, -0.42, 0.18], [0.48, 0.7, 0.48]);
                                     tip.rotation.x = -Math.PI / 2;
@@ -6378,24 +6660,41 @@
 
                 const targetRing = new THREE.Mesh(
                     new THREE.RingGeometry(0.68, 0.82, 36),
-                    new THREE.MeshBasicMaterial({ color: type === 'golem' ? 0xef784b : 0xc43b32, side: THREE.DoubleSide, transparent: true, opacity: 0.78, depthWrite: false })
+                    new THREE.MeshBasicMaterial({ color: isBoss ? 0xe8b74e : type === 'spiderMatriarch' ? 0xd63f72 : type === 'golem' ? 0xef784b : 0xc43b32, side: THREE.DoubleSide, transparent: true, opacity: 0.78, depthWrite: false })
                 );
                 targetRing.rotation.x = -Math.PI / 2;
                 targetRing.position.y = 0.035;
                 targetRing.visible = false;
                 root.add(targetRing);
+                let bossTelegraphGroup = null;
+                let bossTelegraphRing = null;
+                let bossTelegraphLine = null;
+                if (isBoss) {
+                    bossTelegraphGroup = new THREE.Group();
+                    bossTelegraphRing = new THREE.Mesh(new THREE.RingGeometry(0.78, 1, 56), new THREE.MeshBasicMaterial({ color: type === 'dragon' ? 0x7eeeff : type === 'spiderMatriarch' ? 0xb3fa69 : type === 'orcWarlord' ? 0xff7454 : 0xe4be61, side: THREE.DoubleSide, transparent: true, opacity: 0.74, depthWrite: false }));
+                    bossTelegraphRing.rotation.x = -Math.PI / 2;
+                    bossTelegraphRing.position.y = 0.045;
+                    bossTelegraphGroup.add(bossTelegraphRing);
+                    bossTelegraphLine = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: type === 'dragon' ? 0x7eeeff : type === 'spiderMatriarch' ? 0xb3fa69 : type === 'orcWarlord' ? 0xff7454 : 0xe4be61, side: THREE.DoubleSide, transparent: true, opacity: 0.36, depthWrite: false }));
+                    bossTelegraphLine.rotation.x = -Math.PI / 2;
+                    bossTelegraphGroup.add(bossTelegraphLine);
+                    bossTelegraphGroup.visible = false;
+                    scene.add(bossTelegraphGroup);
+                }
                 const label = new THREE.Sprite(makeLabel(type));
-                label.position.set(0, type === 'golem' ? 2.8 : 1.85, 0);
-                label.scale.set(1.25, 0.25, 1);
+                label.position.set(0, isBoss ? (type === 'dragon' || type === 'spiderMatriarch' ? 4.05 : 3.65) : type === 'golem' || isDemon || isOrc ? 3.05 : isSpider || isScorpion ? 2.35 : 1.95, 0);
+                label.scale.set(1.42, 0.38, 1);
                 root.add(label);
 
                 root.userData = {
                     type, name: definition.name, regionId: region.id, homeX: position[0], homeZ: position[1],
-                    phase: index * 1.73 + Math.random() * 2, legs, arms, head, tail, body,
+                    phase: index * 1.73 + Math.random() * 2, legs, arms, head, tail, wings, body,
                     targetRing, level: definition.level, hp: definition.hp, maxHp: definition.hp, speed: definition.speed,
                     damage: definition.damage, aggroRadius: definition.aggro, attackRange: definition.reach,
                     attackRate: definition.attackRate, xp: definition.xp, mode: 'hidden', nextAttackAt: 0,
-                    lastHitAt: -10, deathAt: -1, isBear: type === 'bear', isGolem: type === 'golem'
+                    lastHitAt: -10, deathAt: -1, isBear: type === 'bear', isGolem: type === 'golem', isDemon, isDragon, isFeline,
+                    isScorpion, isSpider, isHumanoid, isOrc, isBoss, bossSkills: bossSkillSets[type] || [], bossSkillIndex: 0,
+                    bossSkill: null, bossTargetX: 0, bossTargetZ: 0, bossSkillYaw: 0, bossTelegraphGroup, bossTelegraphRing, bossTelegraphLine
                 };
                 villageMonsters.push(root);
             }
@@ -6403,7 +6702,13 @@
             explorationRegions = [
                 { id: 'wolf-pass', name: 'Sohan Geçidi', center: [42, -52], radius: 18, detail: 'Aç kurt sürüsü görüldü.', spawns: [['wolf', 38, -48], ['wolf', 44, -50], ['wolf', 47, -56], ['wolf', 39, -58]] },
                 { id: 'red-forest', name: 'Kızıl Orman', center: [-53, 43], radius: 18, detail: 'Kara ayılar ve orman avcıları burada.', spawns: [['bear', -51, 41], ['bear', -57, 46], ['wolf', -48, 48], ['wolf', -59, 39]] },
-                { id: 'stone-quarry', name: 'Şeytan Taşlığı', center: [55, 54], radius: 18, detail: 'Taş muhafızlar bölgeyi koruyor.', spawns: [['golem', 52, 51], ['golem', 59, 56], ['golem', 49, 59]] }
+                { id: 'stone-quarry', name: 'Şeytan Taşlığı', center: [55, 54], radius: 18, detail: 'Taş muhafızlar bölgeyi koruyor.', spawns: [['golem', 52, 51], ['golem', 59, 56], ['golem', 49, 59]] },
+                { id: 'tiger-ridge', name: 'Kanlı Sırtlar', center: [-30, 73], radius: 14, detail: 'Bu yüksek sırtlarda seviye 26 kanlı kaplanlar avlanıyor.', spawns: [['tiger', -33, 71], ['tiger', -27, 75], ['tiger', -30, 77]] },
+                { id: 'demon-fortress', name: 'Karanlık Hisar', center: [-72, -40], radius: 13, detail: 'Hisarın içinde seviye 35 karanlık savaşçılar nöbet tutuyor.', spawns: [['demon', -74, -38], ['demon', -68, -45], ['demon', -77, -42]] },
+                { id: 'sand-wastes', name: 'Yılan Kumu', center: [0, -78], radius: 10, detail: 'Kumulda seviye 24-28 akrepler, yılanlar ve çöl akıncıları pusuda. Kum İmparatoriçesi yuvasını koruyor.', spawns: [['sandScorpion', 0, -77], ['duneSerpent', 5, -78], ['sandRaider', -5, -78], ['sandEmpress', 0, -78]] },
+                { id: 'ice-dragon-nest', name: 'Buz Ejderi Yuvası', center: [-70, -70], radius: 12, detail: 'En uzak zirvede 48. seviye Buz Ejderhası, üç yıkıcı yeteneğiyle yuvasını koruyor.', spawns: [['dragon', -70, -70]] },
+                { id: 'orc-ravine', name: 'Kızıl Ork Geçidi', center: [74, -60], radius: 12, detail: 'Geçitte seviye 40-44 ork izcileri, kasapları ve şamanları kamp kurmuş. Hükümdar alanda.', spawns: [['orcScout', 72, -58], ['orcBrute', 76, -63], ['orcShaman', 70, -64], ['orcWarlord', 74, -60]] },
+                { id: 'spider-hollow', name: 'Kara Dul Yuvası', center: [-75, 75], radius: 12, detail: 'Yuvada seviye 55-62 zehir örümcekleri ve kraliçeleri saklanıyor.', spawns: [['venomSpider', -77, 74], ['venomSpider', -73, 77], ['caveSpider', -78, 78], ['spiderMatriarch', -75, 75]] }
             ];
             explorationRegions.forEach(region => region.spawns.forEach((spawn, index) => addMonster(spawn[0], region, [spawn[1], spawn[2]], index)));
         }
@@ -6419,8 +6724,15 @@
         }
 
         function updatePlayerHealthHud() {
-            document.getElementById('hp-meter-value').style.width = `${inventoryHp}%`;
-            document.getElementById('hp-value').textContent = `${Math.ceil(inventoryHp)} / 100`;
+            document.getElementById('hp-meter-value').style.width = `${inventoryHp / inventoryMaxHp * 100}%`;
+            document.getElementById('hp-value').textContent = `${Math.ceil(inventoryHp)} / ${inventoryMaxHp}`;
+        }
+
+        function updatePlayerLevelHud() {
+            document.getElementById('char-level-text').textContent = `Lv. ${state.playerLevel}`;
+            document.getElementById('inventory-level-text').textContent = `Savaşçı · Seviye ${state.playerLevel} · Mavi Bayrak`;
+            document.getElementById('exp-meter-value').style.width = `${state.playerExp / state.expToNext * 100}%`;
+            document.getElementById('exp-value').textContent = `${state.playerExp} / ${state.expToNext}`;
         }
 
         function applyMonsterDamageAt(worldPos, multiplier = 1) {
@@ -6437,9 +6749,10 @@
 
                 data.lastHitAt = worldSimulationTime;
                 data.mode = 'aggro';
-                data.hp = Math.max(0, data.hp - Math.floor((state.auraActive ? 27 : 18) * multiplier + Math.random() * 7));
+                const damage = Math.floor((state.auraActive ? 27 : 18) * (1 + (state.playerLevel - 1) * 0.02) * multiplier + Math.random() * 7);
+                data.hp = Math.max(0, data.hp - damage);
                 data.hitUntil = worldSimulationTime + 0.16;
-                spawnMonsterDamageNumber(monster, Math.ceil((state.auraActive ? 27 : 18) * multiplier), Math.random() > 0.82);
+                spawnMonsterDamageNumber(monster, damage, Math.random() > 0.82);
                 hitAny = true;
                 if (data.hp <= 0) defeatVillageMonster(monster);
             });
@@ -6448,7 +6761,7 @@
 
         function spawnMonsterDamageNumber(monster, damage, critical = false) {
             if (!camera) return;
-            const position = monster.position.clone().add(new THREE.Vector3(0, monster.userData.isGolem ? 2.4 : 1.55, 0));
+            const position = monster.position.clone().add(new THREE.Vector3(0, monster.userData.isBoss ? 3.8 : monster.userData.isDragon ? 3 : monster.userData.isDemon || monster.userData.isGolem || monster.userData.isOrc ? 2.4 : monster.userData.isSpider || monster.userData.isScorpion ? 2 : 1.55, 0));
             const projected = position.project(camera);
             if (projected.z > 1) return;
             const element = document.createElement('div');
@@ -6466,30 +6779,135 @@
             data.mode = 'dead';
             data.deathAt = worldSimulationTime;
             data.targetRing.visible = false;
+            if (data.bossTelegraphGroup) data.bossTelegraphGroup.visible = false;
             data.nextAttackAt = 0;
             state.monsterKills++;
-            state.playerExp = (state.playerExp + data.xp) % 100;
+            state.playerExp += data.xp;
+            let levelsGained = 0;
+            while (state.playerExp >= state.expToNext) {
+                state.playerExp -= state.expToNext;
+                state.playerLevel++;
+                state.expToNext = 100 + (state.playerLevel - 1) * 8;
+                inventoryMaxHp += 8;
+                inventoryHp = inventoryMaxHp;
+                levelsGained++;
+            }
             document.getElementById('quest-kill-count').textContent = `${state.monsterKills} / 5`;
             document.getElementById('quest-progress').style.width = `${Math.min(100, state.monsterKills / 5 * 100)}%`;
-            document.getElementById('exp-meter-value').style.width = `${state.playerExp}%`;
-            document.getElementById('exp-value').textContent = `${state.playerExp}%`;
+            updatePlayerLevelHud();
+            if (levelsGained) updatePlayerHealthHud();
+            const dropCount = data.isBoss ? 6 : data.level >= 55 ? 4 : data.isOrc || data.isDragon ? 3 : data.level >= 24 ? 2 : 1;
             const claw = getInventoryItem('monster-claw');
-            if (claw) claw.count += data.type === 'golem' ? 2 : 1;
-            showExplorationToast(`${data.name} yenildi`, `+${data.xp} EXP · ${data.type === 'golem' ? '2' : '1'} yaratık pençesi`);
+            if (claw) claw.count += dropCount;
+            const levelUpMessage = levelsGained ? ` · Seviye ${state.playerLevel}! +${levelsGained * 8} azami HP` : '';
+            showExplorationToast(`${data.name} yenildi`, `+${data.xp} EXP · ${dropCount} yaratık pençesi${levelUpMessage}`);
         }
 
         function damagePlayer(amount, attackerName) {
-            inventoryHp = Math.max(0, inventoryHp - amount);
+            const reducedDamage = Math.max(2, amount - Math.floor((state.playerLevel - 1) * 0.55));
+            inventoryHp = Math.max(0, inventoryHp - reducedDamage);
             updatePlayerHealthHud();
-            showExplorationToast(`${attackerName} saldırdı`, `-${amount} HP`);
+            showExplorationToast(`${attackerName} saldırdı`, `-${reducedDamage} HP`);
             if (inventoryHp <= 0) {
-                inventoryHp = 65;
+                inventoryHp = Math.ceil(inventoryMaxHp * 0.65);
                 state.actionState = 'idle';
                 state.isHoldingAttack = false;
                 warriorGroup.position.set(0, getVillageTerrainHeight(0, 0), 0);
                 updatePlayerHealthHud();
                 showExplorationToast('Köye geri döndün', 'Canın kısmen yenilendi. Av alanına hazırlanıp tekrar çık.');
             }
+        }
+
+        function isInsideBossSkill(skill, originX, originZ, yaw, targetX, targetZ, playerX, playerZ) {
+            if (skill.kind === 'circle') return Math.hypot(playerX - targetX, playerZ - targetZ) <= skill.radius;
+            const dx = playerX - originX;
+            const dz = playerZ - originZ;
+            const forwardX = Math.sin(yaw);
+            const forwardZ = Math.cos(yaw);
+            const along = dx * forwardX + dz * forwardZ;
+            if (along < 0 || along > skill.range) return false;
+            if (skill.kind === 'line') return Math.abs(dx * forwardZ - dz * forwardX) <= skill.width * 0.5;
+            const distance = Math.hypot(dx, dz);
+            return distance > 0 && (dx * forwardX + dz * forwardZ) / distance >= Math.cos(skill.angle);
+        }
+
+        function beginWorldBossSkill(monster, elapsedTime) {
+            const data = monster.userData;
+            const skill = data.bossSkills[data.bossSkillIndex % data.bossSkills.length];
+            data.bossSkillIndex++;
+            data.bossSkill = skill;
+            data.bossTargetX = warriorGroup.position.x;
+            data.bossTargetZ = warriorGroup.position.z;
+            data.bossSkillYaw = Math.atan2(data.bossTargetX - monster.position.x, data.bossTargetZ - monster.position.z);
+            data.bossCastAt = elapsedTime + skill.windup;
+            data.mode = 'boss-windup';
+            monster.rotation.y = data.bossSkillYaw;
+            const telegraph = data.bossTelegraphGroup;
+            telegraph.visible = true;
+            telegraph.rotation.y = skill.kind === 'circle' ? 0 : data.bossSkillYaw;
+            if (skill.kind === 'circle') {
+                telegraph.position.set(data.bossTargetX, getVillageTerrainHeight(data.bossTargetX, data.bossTargetZ), data.bossTargetZ);
+                data.bossTelegraphRing.visible = true;
+                data.bossTelegraphRing.scale.setScalar(skill.radius);
+                data.bossTelegraphLine.visible = false;
+            } else {
+                telegraph.position.set(monster.position.x, getVillageTerrainHeight(monster.position.x, monster.position.z), monster.position.z);
+                data.bossTelegraphRing.visible = false;
+                data.bossTelegraphLine.visible = true;
+                data.bossTelegraphLine.scale.set(skill.kind === 'line' ? skill.width : Math.tan(skill.angle) * skill.range * 2, skill.range, 1);
+                data.bossTelegraphLine.position.set(0, 0.02, skill.range * 0.5);
+            }
+            data.bossTelegraphRing.material.color.setHex(skill.color);
+            data.bossTelegraphLine.material.color.setHex(skill.color);
+            showExplorationToast(`${data.name}: ${skill.name}`, `${skill.warning} · ${skill.windup.toFixed(1)} sn`);
+        }
+
+        function spawnBossCircleImpact(worldX, worldZ, radius, color) {
+            const group = new THREE.Group();
+            const fillMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+            const ringMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.48, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+            const pulseMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.38, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+            const fill = new THREE.Mesh(new THREE.CircleGeometry(1, 28), fillMaterial);
+            fill.rotation.x = -Math.PI / 2;
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.96, 32), ringMaterial);
+            ring.rotation.x = -Math.PI / 2;
+            const pulse = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.40, 18), pulseMaterial);
+            pulse.rotation.x = -Math.PI / 2;
+            group.add(fill);
+            group.add(ring);
+            group.add(pulse);
+            group.position.set(worldX, 0.035, worldZ);
+            group.scale.setScalar(radius * 0.14);
+            scene.add(group);
+            activeGroundScars.push({ group, mats: [fillMaterial, ringMaterial, pulseMaterial], age: 0, maxAge: 0.56, bossBurst: true, radius });
+        }
+
+        function resolveWorldBossSkill(monster, elapsedTime) {
+            const data = monster.userData;
+            const skill = data.bossSkill;
+            if (!skill) return;
+            const hit = isInsideBossSkill(skill, monster.position.x, monster.position.z, data.bossSkillYaw, data.bossTargetX, data.bossTargetZ, warriorGroup.position.x, warriorGroup.position.z);
+            const effectX = skill.kind === 'circle' ? data.bossTargetX : monster.position.x;
+            const effectZ = skill.kind === 'circle' ? data.bossTargetZ : monster.position.z;
+            spawnBossCircleImpact(effectX, effectZ, skill.kind === 'circle' ? skill.radius : skill.width || 2.5, skill.color);
+            spawnGroundSlashScar(new THREE.Vector3(monster.position.x, 0, monster.position.z), data.bossSkillYaw, skill.color, skill.range);
+            emitSparks(new THREE.Vector3(effectX, 0.8, effectZ), reducedGraphics ? 10 : 22, skill.color, 1.2);
+            applyCameraImpactPunch(hit ? skill.damage : 0.55);
+            if (hit) {
+                damagePlayer(Math.ceil(data.damage * skill.damage), `${data.name} · ${skill.name}`);
+                const pushX = warriorGroup.position.x - effectX;
+                const pushZ = warriorGroup.position.z - effectZ;
+                const pushLength = Math.hypot(pushX, pushZ) || 1;
+                const pushStrength = skill.kind === 'circle' ? 0.72 : 0.38;
+                warriorGroup.position.x = THREE.MathUtils.clamp(warriorGroup.position.x + pushX / pushLength * pushStrength, -78, 78);
+                warriorGroup.position.z = THREE.MathUtils.clamp(warriorGroup.position.z + pushZ / pushLength * pushStrength, -78, 78);
+            } else {
+                showExplorationToast(`${skill.name} savuşturuldu`, 'Zamanında tehlike alanından çıktın.');
+            }
+            data.bossTelegraphGroup.visible = false;
+            data.mode = 'boss-recover';
+            data.recoverAt = elapsedTime + 0.78;
+            data.nextAttackAt = elapsedTime + skill.cooldown;
         }
 
         function updateVillageMonsters(elapsedTime) {
@@ -6519,12 +6937,13 @@
             else document.getElementById('map-current-region').textContent = 'Merkez Meydan';
 
             let nearestTarget = null;
-            let nearestDistance = 7.5;
+            let nearestDistance = Infinity;
             let threatCount = 0;
             villageMonsters.forEach(monster => {
                 const data = monster.userData;
                 if (!discoveredRegions.has(data.regionId)) return;
                 if (data.mode === 'dead') {
+                    if (data.bossTelegraphGroup) data.bossTelegraphGroup.visible = false;
                     const deathAge = elapsedTime - data.deathAt;
                     if (deathAge < 0.72) {
                         monster.rotation.z = Math.sin(Math.min(1, deathAge / 0.72) * Math.PI * 0.5) * (data.isGolem ? 0.72 : 0.48);
@@ -6547,11 +6966,11 @@
                 const dx = warriorGroup.position.x - monster.position.x;
                 const dz = warriorGroup.position.z - monster.position.z;
                 const distance = Math.hypot(dx, dz);
-                const isAttacking = data.mode === 'windup' || data.mode === 'recover';
+                const isAttacking = data.mode === 'windup' || data.mode === 'recover' || data.mode === 'boss-windup' || data.mode === 'boss-recover';
                 const isAggro = distance < data.aggroRadius || ((data.mode === 'aggro' || isAttacking) && distance < data.aggroRadius + 7);
                 if (!isAttacking) data.mode = isAggro ? 'aggro' : 'idle';
                 let moving = false;
-                let movePhase = elapsedTime * (data.isGolem ? 2.1 : data.isBear ? 4.0 : 6.2) + data.phase;
+                let movePhase = elapsedTime * (data.isSpider ? 7.2 : data.isScorpion ? 4.8 : data.isDragon ? 3.4 : data.isHumanoid ? 4.4 : data.isGolem ? 2.1 : data.isBear ? 4.0 : 6.2) + data.phase;
 
                 if (isAggro && distance > data.attackRange && distance > 0.001) {
                     const chaseStep = Math.min(distance - data.attackRange * 0.72, data.speed * dt);
@@ -6579,33 +6998,43 @@
                 if (data.legs.length) {
                     const stride = moving ? 0.58 : 0.055;
                     data.legs.forEach((leg, index) => {
-                        const offset = data.isGolem ? (index === 0 ? 0 : Math.PI) : ((index === 0 || index === 3) ? 0 : Math.PI);
+                        const offset = data.isSpider || data.isScorpion ? (index % 2 ? Math.PI : 0) : data.isGolem ? (index === 0 ? 0 : Math.PI) : ((index === 0 || index === 3) ? 0 : Math.PI);
                         const raisedPaw = data.mode === 'windup' && !data.isGolem && index < 2 ? 0.3 : 0;
                         leg.rotation.x = Math.sin(movePhase + offset) * stride - raisedPaw;
                     });
                 }
                 if (data.arms.length) {
                     data.arms.forEach((arm, index) => {
-                        const windup = data.mode === 'windup' ? 1 : 0;
+                        const windup = data.mode === 'windup' || data.mode === 'boss-windup' ? 1 : 0;
                         arm.rotation.x = Math.sin(movePhase + index * Math.PI) * (moving ? 0.34 : 0.08) - windup * (data.isGolem ? 0.52 : 0.12);
                         arm.rotation.z = (index === 0 ? -1 : 1) * (windup ? 0.48 : isAggro ? 0.24 : 0.06);
                     });
                 }
                 data.body.position.y = moving ? Math.abs(Math.sin(movePhase * 2)) * (data.isGolem ? 0.035 : 0.045) : Math.sin(movePhase) * 0.012;
-                data.body.rotation.x = data.mode === 'windup' ? (data.isGolem ? -0.2 : -0.16) : isAggro && !moving ? -0.08 : Math.sin(movePhase) * (moving ? 0.035 : 0.012);
+                data.body.rotation.x = data.mode === 'boss-windup' ? (data.bossSkill && data.bossSkill.kind === 'circle' ? -0.3 : -0.18) : data.mode === 'windup' ? (data.isGolem ? -0.2 : -0.16) : isAggro && !moving ? -0.08 : Math.sin(movePhase) * (moving ? 0.035 : 0.012);
                 if (data.head) {
-                    data.head.rotation.x = data.mode === 'windup' ? (data.isGolem ? -0.18 : -0.12) : isAggro ? Math.sin(movePhase * 1.7) * 0.045 : Math.sin(movePhase * 0.6) * 0.035;
+                    data.head.rotation.x = data.mode === 'boss-windup' ? -0.16 : data.mode === 'windup' ? (data.isGolem ? -0.18 : -0.12) : isAggro ? Math.sin(movePhase * 1.7) * 0.045 : Math.sin(movePhase * 0.6) * 0.035;
                     data.head.rotation.y = isAggro ? 0 : Math.sin(movePhase * 0.43) * 0.1;
                 }
-                if (data.tail) data.tail.rotation.x = Math.sin(movePhase * 1.4) * (isAggro ? 0.35 : 0.18);
+                if (data.tail) data.tail.rotation.x = data.isScorpion && data.mode === 'windup' ? -0.52 : Math.sin(movePhase * (data.isScorpion ? 1.9 : 1.4)) * (isAggro ? 0.35 : 0.18);
+                if (data.wings.length) {
+                    data.wings.forEach((wing, index) => {
+                        const flap = Math.sin(elapsedTime * (isAggro ? 5.2 : 2.2) + data.phase + index * Math.PI) * (isAggro ? 0.5 : 0.2);
+                        wing.rotation.z = (index === 0 ? -1 : 1) * flap;
+                        wing.rotation.x = Math.cos(elapsedTime * 1.1 + data.phase) * 0.08;
+                    });
+                }
                 if (data.targetRing) data.targetRing.rotation.z += dt * 0.8;
                 if (worldSimulationTime < data.hitUntil) data.body.scale.setScalar(1 + Math.sin((data.hitUntil - worldSimulationTime) * 42) * 0.045);
                 else data.body.scale.set(1, 1, 1);
 
-                if (isAggro && distance <= data.attackRange) {
+                if (data.isBoss) {
+                    if (data.mode === 'boss-windup' && elapsedTime >= data.bossCastAt) resolveWorldBossSkill(monster, elapsedTime);
+                    else if (isAggro && distance <= data.attackRange && data.mode === 'aggro' && elapsedTime >= data.nextAttackAt) beginWorldBossSkill(monster, elapsedTime);
+                } else if (isAggro && distance <= data.attackRange) {
                     if (data.mode === 'aggro' && elapsedTime >= data.nextAttackAt) {
                         data.mode = 'windup';
-                        data.attackAt = elapsedTime + (data.isGolem ? 0.62 : data.isBear ? 0.46 : 0.32);
+                        data.attackAt = elapsedTime + (data.isDragon ? 0.72 : data.isHumanoid || data.isGolem ? 0.62 : data.isBear ? 0.46 : 0.32);
                         data.nextAttackAt = elapsedTime + data.attackRate;
                     } else if (data.mode === 'windup' && elapsedTime >= data.attackAt) {
                         damagePlayer(data.damage, data.name);
@@ -6619,8 +7048,9 @@
                     }
                 }
                 if (data.mode === 'recover' && elapsedTime >= data.recoverAt) data.mode = 'aggro';
+                if (data.mode === 'boss-recover' && elapsedTime >= data.recoverAt) data.mode = 'aggro';
 
-                if (distance < nearestDistance) {
+                if (distance < nearestDistance && (distance < 7.5 || data.isBoss && distance < data.aggroRadius + 8)) {
                     nearestDistance = distance;
                     nearestTarget = monster;
                 }
@@ -6633,9 +7063,11 @@
             if (nearestTarget) {
                 const targetData = nearestTarget.userData;
                 targetPanel.classList.remove('hidden');
+                document.getElementById('monster-target-heading').textContent = targetData.isBoss ? 'DÜNYA BOSSU' : 'HEDEF';
                 document.getElementById('monster-target-name').textContent = targetData.name;
                 document.getElementById('monster-target-level').textContent = `Lv. ${targetData.level}`;
                 document.getElementById('monster-target-hp').style.width = `${targetData.hp / targetData.maxHp * 100}%`;
+                document.getElementById('monster-target-hp').style.background = targetData.isBoss ? 'linear-gradient(90deg, #7f1d1d, #dc2626, #f59e0b)' : '';
                 document.getElementById('monster-target-hp-text').textContent = `${targetData.hp} / ${targetData.maxHp}`;
             } else {
                 targetPanel.classList.add('hidden');
@@ -6666,11 +7098,11 @@
             scarGroup.position.set(worldPos.x, 0.026, worldPos.z);
             scarGroup.rotation.y = yawAngle;
 
-            const outerGeo = new THREE.PlaneGeometry(0.28, length);
+            const outerGeo = new THREE.PlaneGeometry(0.20, length);
             const outerMat = new THREE.MeshBasicMaterial({
                 color: colorHex,
                 transparent: true,
-                opacity: 0.90,
+                opacity: 0.42,
                 blending: THREE.AdditiveBlending,
                 side: THREE.DoubleSide,
                 depthWrite: false
@@ -6679,11 +7111,11 @@
             outerMesh.rotation.x = -Math.PI / 2;
             scarGroup.add(outerMesh);
 
-            const coreGeo = new THREE.PlaneGeometry(0.09, length * 0.92);
+            const coreGeo = new THREE.PlaneGeometry(0.06, length * 0.82);
             const coreMat = new THREE.MeshBasicMaterial({
                 color: 0xffffff,
                 transparent: true,
-                opacity: 0.98,
+                opacity: 0.72,
                 blending: THREE.AdditiveBlending,
                 side: THREE.DoubleSide,
                 depthWrite: false
@@ -6693,7 +7125,7 @@
             scarGroup.add(coreMesh);
 
             scene.add(scarGroup);
-            activeGroundScars.push({ group: scarGroup, mats: [outerMat, coreMat], age: 0, maxAge: 0.85 });
+            activeGroundScars.push({ group: scarGroup, mats: [outerMat, coreMat], age: 0, maxAge: 0.64 });
         }
 
         function spawnSonicBoomRing(worldPos, yawAngle, colorHex = 0xa855f7) {
@@ -7889,6 +8321,7 @@
                     activeGroundScars.splice(i, 1);
                 } else {
                     const fade = Math.pow(1 - p, 1.4);
+                    if (sc.bossBurst) sc.group.scale.setScalar(sc.radius * (0.18 + p * 1.02));
                     sc.mats[0].opacity = fade * 0.88;
                     sc.mats[1].opacity = fade * 0.96;
                 }
