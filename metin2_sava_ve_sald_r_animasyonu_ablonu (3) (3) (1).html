@@ -578,6 +578,7 @@
         let groundMesh, playerTargetRing, metinStoneGroup, metinRockMesh;
         let villageWorldGroup, villageEffectsGroup, villagePavingMeshes = [], villageLanternLights = [], villageWaterMeshes = [], villageVillagers = [], villageGrassMeshes = [], villageSmokePuffs = [], villageCollisionAreas = [];
         let villageMonsters = [], explorationRegions = [], discoveredRegions = new Set(), worldSimulationTime = 0;
+        let savedPlayerPosition = null, profileSaveTimer = 0;
         let directionalSunLight;
         let reducedGraphics = false;
         let rendererPixelRatioCap = 1.35;
@@ -800,6 +801,15 @@
             { id: 'upgrade-scroll', name: 'Demirci Tavsiyesi', type: 'material', icon: '▤', color: '#e3ce91', count: 4, description: 'Yükseltme denemesini korur.' },
             { id: 'monster-claw', name: 'Canavar Parçası', type: 'material', icon: '⌁', color: '#c6c0ad', count: 12, description: 'Avlardan elde edilen görev ve üretim malzemesi.' }
         ];
+        const bossLootCatalog = {
+            'loot-sand-heart': { id: 'loot-sand-heart', name: 'İmparatoriçe Kalbi', type: 'material', icon: '◆', color: '#e9a84d', description: 'Kum İmparatoriçesi’nin zırhında bulunan sıcak çekirdek.' },
+            'loot-orc-seal': { id: 'loot-orc-seal', name: 'Hükümdar Mührü', type: 'material', icon: '▣', color: '#d86a48', description: 'Kızıl Ork Hükümdarı’nın savaş mührü.' },
+            'loot-dragon-scale': { id: 'loot-dragon-scale', name: 'Buz Ejderi Pulu', type: 'material', icon: '⬟', color: '#76dbe2', description: 'Ejderha yuvasından çıkarılmış donmuş pul.' },
+            'loot-spider-eye': { id: 'loot-spider-eye', name: 'Kara Dul Gözü', type: 'material', icon: '◉', color: '#dc6684', description: 'Kraliçenin zehirli özünü hâlâ taşıyor.' },
+            'loot-ash-core': { id: 'loot-ash-core', name: 'Kül Hayaleti Özü', type: 'material', icon: '✦', color: '#d883b7', description: 'Dağılmayan kül ruhunun yoğunlaşmış özü.' },
+            'loot-grave-sigil': { id: 'loot-grave-sigil', name: 'Mezar Nişanı', type: 'material', icon: '✥', color: '#d8c28d', description: 'Mezar Muhafızı’nın kadim zırhından bir nişan.' },
+            'loot-abyss-shard': { id: 'loot-abyss-shard', name: 'Uçurum Parçası', type: 'material', icon: '✧', color: '#a9b6ff', description: 'Uçurum Muhafızı’nın karanlık çekirdeğinden kopmuş parça.' }
+        };
         const equippedItems = {
             weapon: 'sword-starter', armor: 'armor-starter', helmet: null, shield: null,
             gloves: null, boots: null, necklace: null, earring: null, ring: null, belt: null
@@ -815,6 +825,99 @@
         let inventoryHp = 100;
         let inventoryMaxHp = 100;
         let inventoryMp = 92;
+        const profileStorageKey = 'metin2-village-character-v1';
+
+        function savePlayerProfile() {
+            try {
+                localStorage.setItem(profileStorageKey, JSON.stringify({
+                    version: 1,
+                    playerLevel: state.playerLevel,
+                    playerExp: state.playerExp,
+                    monsterKills: state.monsterKills,
+                    hp: inventoryHp,
+                    mp: inventoryMp,
+                    inventory: inventoryItems.map(item => ({ id: item.id, count: item.count ?? null })),
+                    equippedItems: { ...equippedItems },
+                    swordType: state.swordType,
+                    armorTheme: state.armorTheme,
+                    helmetMode: state.helmetMode,
+                    position: warriorGroup ? { x: warriorGroup.position.x, z: warriorGroup.position.z, yaw: warriorGroup.rotation.y } : null
+                }));
+            } catch (error) {
+                console.warn('Karakter kaydı yazılamadı:', error);
+            }
+        }
+
+        function loadPlayerProfile() {
+            try {
+                const rawProfile = localStorage.getItem(profileStorageKey);
+                if (!rawProfile) return;
+                const profile = JSON.parse(rawProfile);
+                if (profile.version !== 1) return;
+
+                const savedLevel = Number(profile.playerLevel);
+                state.playerLevel = Number.isFinite(savedLevel) ? Math.max(1, Math.min(999, Math.floor(savedLevel))) : 1;
+                state.expToNext = 100 + (state.playerLevel - 1) * 8;
+                const savedExp = Number(profile.playerExp);
+                state.playerExp = Number.isFinite(savedExp) ? Math.max(0, Math.min(state.expToNext - 1, Math.floor(savedExp))) : 0;
+                const savedKills = Number(profile.monsterKills);
+                state.monsterKills = Number.isFinite(savedKills) ? Math.max(0, Math.floor(savedKills)) : 0;
+                inventoryMaxHp = 100 + (state.playerLevel - 1) * 8;
+                const savedHp = Number(profile.hp);
+                inventoryHp = Number.isFinite(savedHp) ? Math.max(0, Math.min(inventoryMaxHp, savedHp)) : inventoryMaxHp;
+                const savedMp = Number(profile.mp);
+                inventoryMp = Number.isFinite(savedMp) ? Math.max(0, Math.min(100, savedMp)) : 92;
+
+                if (Array.isArray(profile.inventory)) {
+                    const itemCatalog = new Map([...inventoryItems, ...Object.values(bossLootCatalog)].map(item => [item.id, item]));
+                    const seenItems = new Set();
+                    const restoredItems = profile.inventory.slice(0, 30).flatMap(savedItem => {
+                        if (!savedItem || typeof savedItem.id !== 'string' || seenItems.has(savedItem.id)) return [];
+                        const template = itemCatalog.get(savedItem.id);
+                        if (!template) return [];
+                        seenItems.add(savedItem.id);
+                        const item = { ...template };
+                        if (template.count !== undefined || template.type === 'material' && template.id.startsWith('loot-')) {
+                            const count = Number(savedItem.count);
+                            item.count = Number.isFinite(count) ? Math.max(0, Math.min(999999, Math.floor(count))) : 0;
+                        } else {
+                            delete item.count;
+                        }
+                        return [item];
+                    });
+                    inventoryItems.splice(0, inventoryItems.length, ...restoredItems);
+                }
+
+                if (profile.equippedItems && typeof profile.equippedItems === 'object') {
+                    equipmentSlots.forEach(slot => {
+                        const item = getInventoryItem(profile.equippedItems[slot.id]);
+                        if (item?.type === 'equipment' && item.slot === slot.id) equippedItems[slot.id] = item.id;
+                        else if (equippedItems[slot.id] && !getInventoryItem(equippedItems[slot.id])) equippedItems[slot.id] = null;
+                    });
+                }
+
+                [['sword-select', 'swordType'], ['armor-select', 'armorTheme'], ['helmet-select', 'helmetMode']].forEach(([selectId, stateKey]) => {
+                    const select = document.getElementById(selectId);
+                    const savedValue = profile[stateKey];
+                    if (select && typeof savedValue === 'string' && Array.from(select.options).some(option => option.value === savedValue)) {
+                        select.value = savedValue;
+                        state[stateKey] = savedValue;
+                    }
+                });
+
+                if (profile.position && Number.isFinite(Number(profile.position.x)) && Number.isFinite(Number(profile.position.z))) {
+                    savedPlayerPosition = {
+                        x: THREE.MathUtils.clamp(Number(profile.position.x), -78, 78),
+                        z: THREE.MathUtils.clamp(Number(profile.position.z), -78, 78),
+                        yaw: Number.isFinite(Number(profile.position.yaw)) ? Number(profile.position.yaw) : 0
+                    };
+                }
+            } catch (error) {
+                console.warn('Karakter kaydı okunamadı:', error);
+            }
+        }
+
+        window.addEventListener('beforeunload', savePlayerProfile);
 
         function toggleInventory(forceOpen) {
             const modal = document.getElementById('inventory-modal');
@@ -824,6 +927,7 @@
             if (shouldOpen) {
                 renderInventory();
                 renderEquipment();
+                savePlayerProfile();
                 document.getElementById('inventory-close-btn')?.focus();
             } else {
                 document.getElementById('inventory-open-btn')?.focus();
@@ -927,6 +1031,7 @@
             } else {
                 message.textContent = `${item.name}: ${item.description}`;
             }
+            savePlayerProfile();
         }
 
         function unequipItem(slotId) {
@@ -955,6 +1060,7 @@
             document.getElementById('inventory-message').textContent = `${item?.name || 'Eşya'} çıkarıldı.`;
             renderEquipment();
             renderInventory();
+            savePlayerProfile();
         }
 
         function spawnDamageNumber(dmg, isCrit = true) {
@@ -1625,6 +1731,13 @@
             createPlusNineSparkles(textures.sparkTexture);
             createMetinStoneTarget();
             createVillageMonsters();
+            if (savedPlayerPosition) {
+                const position = new THREE.Vector3(savedPlayerPosition.x, 0, savedPlayerPosition.z);
+                if (!isVillagePositionBlocked(position)) {
+                    warriorGroup.position.set(position.x, getVillageTerrainHeight(position.x, position.z), position.z);
+                    warriorGroup.rotation.y = savedPlayerPosition.yaw;
+                }
+            }
             loadUploadedGameAssets();
 
             setupInteractionEvents();
@@ -5887,6 +6000,7 @@
             state.swordType = type;
             buildSwordGeometry(type);
             refreshUploadedAssetVisibility();
+            savePlayerProfile();
         }
 
         function changeArmorTheme(theme) {
@@ -5960,6 +6074,7 @@
                 if (lvlBadge) lvlBadge.innerText = 'Lv.105';
             }
             refreshUploadedAssetVisibility();
+            savePlayerProfile();
         }
 
         function changeHelmetMode(mode) {
@@ -5969,6 +6084,7 @@
             if (joints.fullVisorGroup) joints.fullVisorGroup.visible = (mode === 'full');
             if (joints.faceFeaturesGroup) joints.faceFeaturesGroup.visible = (mode !== 'full');
             refreshUploadedAssetVisibility();
+            savePlayerProfile();
         }
 
         function spawnVerticalLightPillars(centerPos, colorHex, count = 6) {
@@ -6237,6 +6353,8 @@
                 tiger: new THREE.MeshStandardMaterial({ color: 0xe7c46b, emissive: 0x61410d, emissiveIntensity: 0.42, roughness: 0.28 }),
                 demon: new THREE.MeshStandardMaterial({ color: 0xf24532, emissive: 0x7a140d, emissiveIntensity: 0.92, roughness: 0.24 }),
                 ashWraith: new THREE.MeshStandardMaterial({ color: 0xffd0b5, emissive: 0xe55d9b, emissiveIntensity: 1.4, roughness: 0.16 }),
+                graveSentinel: new THREE.MeshStandardMaterial({ color: 0xfff1b8, emissive: 0x8a6b18, emissiveIntensity: 1.0, roughness: 0.2 }),
+                abyssWarden: new THREE.MeshStandardMaterial({ color: 0xffebc0, emissive: 0x4d3d9d, emissiveIntensity: 1.25, roughness: 0.18 }),
                 dragon: new THREE.MeshStandardMaterial({ color: 0x77e8d2, emissive: 0x126f70, emissiveIntensity: 1.1, roughness: 0.2 }),
                 sandScorpion: new THREE.MeshStandardMaterial({ color: 0xffd071, emissive: 0x9a4c12, emissiveIntensity: 0.8, roughness: 0.24 }),
                 duneSerpent: new THREE.MeshStandardMaterial({ color: 0xf4d579, emissive: 0x68711b, emissiveIntensity: 0.7, roughness: 0.24 }),
@@ -6253,7 +6371,7 @@
                 canvas.width = 256;
                 canvas.height = 256;
                 const context = canvas.getContext('2d');
-                const base = type === 'tiger' ? '#c88737' : type === 'dragon' ? '#266f68' : type === 'demon' ? '#73352c' : type === 'ashWraith' ? '#4f3b52' : type === 'golem' ? '#77766b' : type === 'bear' ? '#65432f' : type === 'sandScorpion' ? '#ad6c35' : type === 'duneSerpent' ? '#6d8c42' : type === 'sandRaider' ? '#8f6742' : type.startsWith('orc') ? '#4d6940' : type === 'venomSpider' ? '#385442' : type === 'caveSpider' ? '#67513d' : type === 'spiderMatriarch' ? '#542b3c' : '#77766e';
+                const base = type === 'tiger' ? '#c88737' : type === 'dragon' ? '#266f68' : type === 'demon' ? '#73352c' : type === 'ashWraith' ? '#4f3b52' : type === 'graveSentinel' ? '#5f5c66' : type === 'abyssWarden' ? '#2b2f44' : type === 'golem' ? '#77766b' : type === 'bear' ? '#65432f' : type === 'sandScorpion' ? '#ad6c35' : type === 'duneSerpent' ? '#6d8c42' : type === 'sandRaider' ? '#8f6742' : type.startsWith('orc') ? '#4d6940' : type === 'venomSpider' ? '#385442' : type === 'caveSpider' ? '#67513d' : type === 'spiderMatriarch' ? '#542b3c' : '#77766e';
                 context.fillStyle = base;
                 context.fillRect(0, 0, 256, 256);
                 for (let index = 0; index < 900; index++) {
@@ -6288,6 +6406,67 @@
                         context.lineTo(256, y + 12);
                         context.stroke();
                     }
+                } else if (type === 'ashWraith') {
+                    context.strokeStyle = 'rgba(255,214,173,.42)';
+                    context.lineWidth = 2;
+                    for (let y = 16; y < 256; y += 18) {
+                        context.beginPath();
+                        context.moveTo(0, y + 8);
+                        context.bezierCurveTo(64, y - 12, 192, y + 20, 256, y - 6);
+                        context.stroke();
+                    }
+                    context.strokeStyle = 'rgba(255,133,190,.38)';
+                    context.lineWidth = 4;
+                    for (let i = 0; i < 9; i++) {
+                        const x = 18 + i * 24;
+                        context.beginPath();
+                        context.moveTo(x, 18);
+                        context.lineTo(x + 10, 236);
+                        context.stroke();
+                    }
+                } else if (type === 'graveSentinel') {
+                    context.strokeStyle = 'rgba(212, 202, 170, 0.7)';
+                    context.lineWidth = 5;
+                    for (let i = 0; i < 8; i++) {
+                        context.beginPath();
+                        context.moveTo(18 + i * 28, 216);
+                        context.lineTo(38 + i * 28, 28 + (i % 2) * 14);
+                        context.stroke();
+                    }
+                    context.strokeStyle = 'rgba(120, 98, 56, 0.72)';
+                    context.lineWidth = 3;
+                    for (let y = 20; y < 236; y += 24) {
+                        context.beginPath();
+                        context.moveTo(0, y);
+                        context.lineTo(256, y + 12);
+                        context.stroke();
+                    }
+                    context.fillStyle = 'rgba(255, 248, 200, 0.12)';
+                    for (let i = 0; i < 22; i++) {
+                        context.fillRect(12 + i * 11, 35 + (i % 7) * 16, 7, 7);
+                    }
+                } else if (type === 'abyssWarden') {
+                    context.strokeStyle = 'rgba(154, 170, 255, 0.9)';
+                    context.lineWidth = 5;
+                    for (let i = 0; i < 9; i++) {
+                        const x = 18 + i * 24;
+                        context.beginPath();
+                        context.moveTo(x, 28);
+                        context.lineTo(x + 10, 228);
+                        context.stroke();
+                    }
+                    context.strokeStyle = 'rgba(228, 215, 147, 0.7)';
+                    context.lineWidth = 3;
+                    for (let y = 20; y < 236; y += 18) {
+                        context.beginPath();
+                        context.moveTo(0, y);
+                        context.lineTo(256, y + 12);
+                        context.stroke();
+                    }
+                    context.fillStyle = 'rgba(255, 244, 182, 0.12)';
+                    for (let i = 0; i < 26; i++) {
+                        context.fillRect(14 + i * 9, 32 + (i % 5) * 16, 7, 7);
+                    }
                 } else if (type === 'golem') {
                     context.strokeStyle = 'rgba(30,20,14,.72)';
                     context.lineWidth = 3;
@@ -6305,7 +6484,7 @@
                 texture.encoding = THREE.sRGBEncoding;
                 return texture;
             }
-            const creatureTextures = Object.fromEntries(['wolf', 'bear', 'golem', 'tiger', 'demon', 'ashWraith', 'dragon', 'sandScorpion', 'duneSerpent', 'sandRaider', 'orcScout', 'orcBrute', 'orcShaman', 'venomSpider', 'caveSpider', 'spiderMatriarch'].map(type => [type, makeCreatureTexture(type)]));
+            const creatureTextures = Object.fromEntries(['wolf', 'bear', 'golem', 'tiger', 'demon', 'ashWraith', 'graveSentinel', 'abyssWarden', 'dragon', 'sandScorpion', 'duneSerpent', 'sandRaider', 'orcScout', 'orcBrute', 'orcShaman', 'venomSpider', 'caveSpider', 'spiderMatriarch'].map(type => [type, makeCreatureTexture(type)]));
             const materialsByType = {
                 wolf: {
                     hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.wolf, roughness: 0.96 }),
@@ -6337,6 +6516,16 @@
                 hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.ashWraith, roughness: 0.26, metalness: 0.3, emissive: 0x4a1f36, emissiveIntensity: 0.8 }),
                 light: new THREE.MeshStandardMaterial({ color: 0xd7a4b8, roughness: 0.22, metalness: 0.52 }),
                 dark: new THREE.MeshStandardMaterial({ color: 0x2d1221, roughness: 0.3, metalness: 0.52 })
+            };
+            materialsByType.graveSentinel = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.graveSentinel, roughness: 0.32, metalness: 0.62, emissive: 0x513d0f, emissiveIntensity: 0.48 }),
+                light: new THREE.MeshStandardMaterial({ color: 0xd8c28d, roughness: 0.36, metalness: 0.7 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x3d3c37, roughness: 0.44, metalness: 0.64 })
+            };
+            materialsByType.abyssWarden = {
+                hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.abyssWarden, roughness: 0.28, metalness: 0.7, emissive: 0x2f2c64, emissiveIntensity: 0.8 }),
+                light: new THREE.MeshStandardMaterial({ color: 0xdfd5b2, roughness: 0.32, metalness: 0.72 }),
+                dark: new THREE.MeshStandardMaterial({ color: 0x232231, roughness: 0.44, metalness: 0.68 })
             };
             materialsByType.dragon = {
                 hide: new THREE.MeshStandardMaterial({ color: 0xffffff, map: creatureTextures.dragon, roughness: 0.3, metalness: 0.18 }),
@@ -6375,6 +6564,8 @@
                 tiger: { name: 'Kanlı Kaplan', level: 26, hp: 310, speed: 2.25, damage: 21, aggro: 13, reach: 1.75, attackRate: 1.25, scale: 1.08, xp: 14 },
                 demon: { name: 'Karanlık Savaşçı', level: 35, hp: 490, speed: 1.38, damage: 29, aggro: 14, reach: 2.25, attackRate: 1.55, scale: 1.24, xp: 21 },
                 ashWraith: { name: 'Kül Hayaleti', level: 70, hp: 3180, speed: 1.48, damage: 78, aggro: 24, reach: 3.4, attackRate: 1.9, scale: 1.86, xp: 170 },
+                graveSentinel: { name: 'Mezar Muhafızı', level: 82, hp: 4650, speed: 1.12, damage: 96, aggro: 28, reach: 3.8, attackRate: 2.1, scale: 2.12, xp: 260 },
+                abyssWarden: { name: 'Uçurum Muhafızı', level: 90, hp: 6100, speed: 1.04, damage: 120, aggro: 32, reach: 4.1, attackRate: 2.3, scale: 2.22, xp: 320 },
                 dragon: { name: 'Buz Ejderhası', level: 48, hp: 780, speed: 1.72, damage: 42, aggro: 16, reach: 2.8, attackRate: 1.8, scale: 1.62, xp: 32 },
                 sandScorpion: { name: 'Kum Akrebi', level: 24, hp: 280, speed: 1.25, damage: 18, aggro: 12, reach: 1.8, attackRate: 1.7, scale: 1.02, xp: 13 },
                 duneSerpent: { name: 'Kumul Yılanı', level: 25, hp: 320, speed: 1.62, damage: 20, aggro: 13, reach: 1.9, attackRate: 1.45, scale: 1.08, xp: 14 },
@@ -6419,6 +6610,18 @@
                     { name: 'Gölge Çemberi', kind: 'circle', range: 12, radius: 6.4, windup: 1.1, damage: 1.7, cooldown: 2.7, color: 0xee7ad3, warning: 'Gölge çemberinden kaç' },
                     { name: 'Kül Fırtınası', kind: 'cone', range: 15, angle: 0.52, windup: 1.35, damage: 1.95, cooldown: 3.1, color: 0xffb26a, warning: 'Kül nefesinin önünden geç' },
                     { name: 'Yoksunluk Dalgası', kind: 'circle', range: 16, radius: 5.6, windup: 1.25, damage: 1.86, cooldown: 2.9, color: 0xc7a2ff, warning: 'Karanlık dalgasından uzaklaş' }
+                ],
+                graveSentinel: [
+                    { name: 'Kızıl Mızrak', kind: 'line', range: 14, width: 2.9, windup: 1.0, damage: 1.9, cooldown: 2.7, color: 0xf5c96d, warning: 'Mızrak hattından çık' },
+                    { name: 'Mezar Çanı', kind: 'circle', range: 13, radius: 6.7, windup: 1.2, damage: 1.82, cooldown: 2.9, color: 0xdcc9a6, warning: 'Çan sesi basınca kaç' },
+                    { name: 'Kara Güneş', kind: 'cone', range: 16, angle: 0.57, windup: 1.45, damage: 2.1, cooldown: 3.3, color: 0xff8d4d, warning: 'Kızıl ışık önünden geç' },
+                    { name: 'Kılıç Fırtınası', kind: 'circle', range: 15, radius: 5.9, windup: 1.25, damage: 1.96, cooldown: 3.0, color: 0xffd7a3, warning: 'Fırtına halkasından uzaklaş' }
+                ],
+                abyssWarden: [
+                    { name: 'Gölgeli Kılıç', kind: 'line', range: 15, width: 3.2, windup: 1.05, damage: 2.15, cooldown: 2.9, color: 0xb5c2ff, warning: 'Kılıç açısının dışına çık' },
+                    { name: 'Beyaz Uçurum', kind: 'circle', range: 14, radius: 7.1, windup: 1.35, damage: 1.98, cooldown: 3.1, color: 0xeddca6, warning: 'Abyss dairesinden kaç' },
+                    { name: 'Yokluk Nefesi', kind: 'cone', range: 18, angle: 0.62, windup: 1.5, damage: 2.28, cooldown: 3.4, color: 0x91a6ff, warning: 'Nefesin önünden çekil' },
+                    { name: 'Karanlık Şafak', kind: 'circle', range: 16, radius: 6.2, windup: 1.2, damage: 2.08, cooldown: 3.2, color: 0xffb879, warning: 'Işık çemberinin dışına çık' }
                 ]
             };
             const labelMaterials = {};
@@ -6480,7 +6683,7 @@
                 const isOrc = type.startsWith('orc');
                 const isSandRaider = type === 'sandRaider';
                 const isSerpent = type === 'duneSerpent';
-                const isHumanoid = isDemon || isOrc || isSandRaider || isSerpent;
+                const isHumanoid = type === 'abyssWarden' || isDemon || isOrc || isSandRaider || isSerpent;
                 const isBoss = Boolean(bossSkillSets[type]);
                 let head;
                 let tail;
@@ -6566,6 +6769,57 @@
                         lower.rotation.z = side * 0.92;
                         legs.push(leg);
                     }));
+                } else if (type === 'ashWraith') {
+                    const wraithCore = new THREE.MeshStandardMaterial({ color: 0xeec4db, emissive: 0xff7bb0, emissiveIntensity: 1.8, roughness: 0.2, metalness: 0.5 });
+                    addMonsterMesh(body, sphereGeometry, material.hide, [0, 1.2, 0], [0.68, 0.78, 0.56]);
+                    const mantle = addMonsterMesh(body, new THREE.CylinderGeometry(0.36, 0.64, 1.8, 12, 1, true), material.dark, [0, 1.2, -0.11], [1.2, 1.2, 1.2]);
+                    mantle.rotation.x = -0.26;
+                    const cape = addMonsterMesh(body, new THREE.ConeGeometry(0.72, 1.7, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x4b243e, roughness: 0.32, metalness: 0.45, side: THREE.DoubleSide, emissive: 0x472a56, emissiveIntensity: 0.85 }), [0, 1.55, -0.62], [1, 1.2, 1]);
+                    cape.rotation.x = Math.PI * 0.18;
+                    head = new THREE.Group();
+                    head.position.set(0, 2.08, 0.08);
+                    body.add(head);
+                    addMonsterMesh(head, sphereGeometry, material.hide, [0, 0, 0.06], [0.4, 0.42, 0.38]);
+                    addMonsterMesh(head, sphereGeometry, wraithCore, [0, -0.06, 0.28], [0.17, 0.12, 0.13]);
+                    addMonsterMesh(head, hornGeometry, material.light, [0, 0.3, -0.1], [0.7, 1.5, 0.8]);
+                    [-1, 1].forEach(side => {
+                        addMonsterMesh(head, sphereGeometry, eyeMaterials.ashWraith, [side * 0.16, 0.04, 0.28], [0.08, 0.06, 0.04]);
+                        const horn = addMonsterMesh(head, hornGeometry, material.light, [side * 0.22, 0.42, -0.06], [0.9, 1.7, 0.9]);
+                        horn.rotation.z = side * -0.52;
+                        const arm = new THREE.Group();
+                        arm.position.set(side * 0.66, 1.56, 0.08);
+                        body.add(arm);
+                        addMonsterMesh(arm, new THREE.CylinderGeometry(0.08, 0.12, 1.1, 8), material.dark, [0, -0.45, 0.03], [1, 1, 0.8]);
+                        addMonsterMesh(arm, hornGeometry, material.light, [0.12 * side, -0.98, 0.08], [0.26, 1.5, 0.25]);
+                        arm.rotation.z = side * -0.56;
+                        arms.push(arm);
+                        const shoulder = addMonsterMesh(body, new THREE.BoxGeometry(0.25, 0.32, 0.18), material.light, [side * 0.52, 1.72, 0.08]);
+                        shoulder.rotation.z = side * 0.7;
+                    });
+                    [-1, 1].forEach(side => {
+                        const wing = new THREE.Group();
+                        wing.position.set(side * 0.48, 1.58, -0.2);
+                        body.add(wing);
+                        const wingBone = addMonsterMesh(wing, new THREE.CylinderGeometry(0.03, 0.09, 1.4, 6), material.light, [side * 0.16, -0.26, -0.28]);
+                        wingBone.rotation.z = side * -0.9;
+                        const membrane = addMonsterMesh(wing, new THREE.PlaneGeometry(1.2, 0.86, 5, 4), new THREE.MeshStandardMaterial({ color: 0x8a4d73, emissive: 0x69264d, emissiveIntensity: 1.2, side: THREE.DoubleSide, roughness: 0.38, metalness: 0.62, transparent: true, opacity: 0.76 }), [side * 0.38, -0.18, -0.34]);
+                        membrane.rotation.y = side * -0.86;
+                        membrane.rotation.z = side * -0.46;
+                        wings.push(wing);
+                    });
+                    for (let i = 0; i < 6; i++) {
+                        const ribbon = addMonsterMesh(body, new THREE.PlaneGeometry(0.68, 1.7, 4, 4), new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? 0xfaa7bd : 0xe7b8ff, emissive: i % 2 === 0 ? 0x8b1f5d : 0x6041a4, emissiveIntensity: 1.1, side: THREE.DoubleSide, transparent: true, opacity: 0.54, roughness: 0.18 }), [0, 1.2 + i * 0.1, -0.58 + i * 0.08]);
+                        ribbon.rotation.x = -0.08 + i * 0.12;
+                        ribbon.rotation.y = i * 0.24;
+                    }
+                    [-1, 1].forEach(side => {
+                        const leg = new THREE.Group();
+                        leg.position.set(side * 0.24, 0.8, 0.02);
+                        body.add(leg);
+                        addMonsterMesh(leg, new THREE.CylinderGeometry(0.08, 0.12, 0.9, 6), material.dark, [0, -0.26, 0.04]);
+                        addMonsterMesh(leg, footGeometry, material.light, [0, -0.6, 0.1], [0.22, 0.16, 0.3]);
+                        legs.push(leg);
+                    });
                 } else if (isHumanoid) {
                     addMonsterMesh(body, sphereGeometry, material.hide, [0, 1.24, 0], [0.48, 0.68, 0.32]);
                     addMonsterMesh(body, sphereGeometry, material.dark, [0, 1.38, 0.11], [0.58, 0.38, 0.36]);
@@ -6728,7 +6982,9 @@
                 { id: 'spider-hollow', name: 'Kara Dul Yuvası', center: [-75, 75], radius: 12, detail: 'Yuvada seviye 55-62 zehir örümcekleri ve kraliçeleri saklanıyor.', spawns: [['venomSpider', -77, 74], ['venomSpider', -73, 77], ['caveSpider', -78, 78], ['spiderMatriarch', -75, 75], ['caveSpider', -70, 79]] },
                 { id: 'sunken-gate', name: 'Yüzen Kapı', center: [20, -18], radius: 14, detail: 'Su kenarında gölgeler toplanıyor; eski kapıdaki hayaletler artık uyanıyor.', spawns: [['demon', 18, -17], ['sandRaider', 22, -22], ['dragon', 26, -15]] },
                 { id: 'ash-keep', name: 'Kül Kalesi', center: [68, 28], radius: 13, detail: 'Mızraklı koruyucular ve kırmızı savaşçılar burada bekliyor.', spawns: [['orcBrute', 69, 30], ['orcShaman', 65, 28], ['golem', 72, 24], ['orcWarlord', 68, 28]] },
-                { id: 'cinder-ruins', name: 'Kül Harabeleri', center: [32, 72], radius: 15, detail: 'Toprak altında gömülü bir rüya uyanıyor; kül hayaletleri artık izlendiği anda saldırıyor.', spawns: [['ashWraith', 32, 72], ['demon', 28, 76], ['orcBrute', 36, 75], ['golem', 30, 67]] }
+                { id: 'cinder-ruins', name: 'Kül Harabeleri', center: [32, 72], radius: 15, detail: 'Toprak altında gömülü bir rüya uyanıyor; kül hayaletleri artık izlendiği anda saldırıyor.', spawns: [['ashWraith', 32, 72], ['demon', 28, 76], ['orcBrute', 36, 75], ['golem', 30, 67]] },
+                { id: 'grave-plain', name: 'Mezar Düzlüğü', center: [-18, 64], radius: 15, detail: 'Mezar taşları arasında küller ve altın zırhlı muhafızlar bekliyor; en büyük nöbetçi burada uyandı.', spawns: [['graveSentinel', -18, 64], ['ashWraith', -14, 68], ['golem', -22, 60], ['demon', -12, 59]] },
+                { id: 'abyss-gate', name: 'Uçurum Kapısı', center: [-48, -76], radius: 16, detail: 'Bu kapıda en karanlık muhafız uyandı; gölgelerin gecesi artık açıkça konuşuyor.', spawns: [['abyssWarden', -48, -76], ['graveSentinel', -42, -81], ['ashWraith', -53, -72], ['demon', -46, -68]] }
             ];
             explorationRegions.forEach(region => region.spawns.forEach((spawn, index) => addMonster(spawn[0], region, [spawn[1], spawn[2]], index)));
         }
@@ -6796,6 +7052,15 @@
 
         function defeatVillageMonster(monster) {
             const data = monster.userData;
+            const bossLoot = {
+                sandEmpress: 'loot-sand-heart',
+                orcWarlord: 'loot-orc-seal',
+                dragon: 'loot-dragon-scale',
+                spiderMatriarch: 'loot-spider-eye',
+                ashWraith: 'loot-ash-core',
+                graveSentinel: 'loot-grave-sigil',
+                abyssWarden: 'loot-abyss-shard'
+            };
             data.mode = 'dead';
             data.deathAt = worldSimulationTime;
             data.targetRing.visible = false;
@@ -6819,8 +7084,24 @@
             const dropCount = data.isBoss ? 6 : data.level >= 55 ? 4 : data.isOrc || data.isDragon ? 3 : data.level >= 24 ? 2 : 1;
             const claw = getInventoryItem('monster-claw');
             if (claw) claw.count += dropCount;
+            let bossLootMessage = '';
+            const bossLootId = bossLoot[data.type];
+            if (bossLootId) {
+                const existingLoot = getInventoryItem(bossLootId);
+                if (!existingLoot && inventoryItems.length >= 30) {
+                    bossLootMessage = ' · Çanta dolu, boss ödülü alınamadı';
+                } else {
+                    const loot = existingLoot || { ...bossLootCatalog[bossLootId], count: 0 };
+                    loot.count += 1;
+                    if (!existingLoot) inventoryItems.push(loot);
+                    bossLootMessage = ` · Boss ödülü: ${loot.name} x1`;
+                    const inventoryModal = document.getElementById('inventory-modal');
+                    if (inventoryModal && !inventoryModal.classList.contains('hidden')) renderInventory();
+                }
+            }
             const levelUpMessage = levelsGained ? ` · Seviye ${state.playerLevel}! +${levelsGained * 8} azami HP` : '';
-            showExplorationToast(`${data.name} yenildi`, `+${data.xp} EXP · ${dropCount} yaratık pençesi${levelUpMessage}`);
+            showExplorationToast(`${data.name} yenildi`, `+${data.xp} EXP · ${dropCount} yaratık pençesi${bossLootMessage}${levelUpMessage}`);
+            savePlayerProfile();
         }
 
         function damagePlayer(amount, attackerName) {
@@ -6836,6 +7117,7 @@
                 updatePlayerHealthHud();
                 showExplorationToast('Köye geri döndün', 'Canın kısmen yenilendi. Av alanına hazırlanıp tekrar çık.');
             }
+            savePlayerProfile();
         }
 
         function isInsideBossSkill(skill, originX, originZ, yaw, targetX, targetZ, playerX, playerZ) {
@@ -8622,14 +8904,25 @@
             updateUploadedCharacterAnimation(rawDt);
             updateCameraPosition(rawDt);
             renderer.render(scene, camera);
+            profileSaveTimer += rawDt;
+            if (profileSaveTimer >= 8) {
+                profileSaveTimer = 0;
+                savePlayerProfile();
+            }
         }
 
         window.onload = async function () {
             const bootStatus = document.getElementById('boot-status');
             try {
                 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                loadPlayerProfile();
                 initScene();
                 setCameraView('default');
+                updatePlayerHealthHud();
+                updatePlayerLevelHud();
+                document.getElementById('mp-meter-value').style.width = `${inventoryMp}%`;
+                renderEquipment();
+                renderInventory();
                 animate();
                 bootStatus.classList.add('hidden');
             } catch (error) {
