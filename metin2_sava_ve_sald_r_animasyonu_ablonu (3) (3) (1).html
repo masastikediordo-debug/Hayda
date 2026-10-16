@@ -6386,22 +6386,26 @@
                 sandEmpress: [
                     { name: 'Kum Çöküşü', kind: 'circle', range: 12, radius: 6.2, windup: 1.25, damage: 1.45, cooldown: 2.6, color: 0xeab45c, warning: 'Kum dalgası yaklaşıyor' },
                     { name: 'Kuyruk Delişi', kind: 'line', range: 11, width: 2.4, windup: 0.9, damage: 1.7, cooldown: 2.3, color: 0xff7058, warning: 'Kuyruk hücumundan sıyrıl' },
-                    { name: 'Zehirli Halka', kind: 'circle', range: 13, radius: 4.1, windup: 0.75, damage: 1.05, cooldown: 2.1, color: 0x8de35e, warning: 'Zehirli zeminden uzaklaş' }
+                    { name: 'Zehirli Halka', kind: 'circle', range: 13, radius: 4.1, windup: 0.75, damage: 1.05, cooldown: 2.1, color: 0x8de35e, warning: 'Zehirli zeminden uzaklaş' },
+                    { name: 'Kum Kalesi', kind: 'circle', range: 14, radius: 7.3, windup: 1.55, damage: 1.82, cooldown: 3.1, color: 0xf7c56c, warning: 'Toprak duvarı kapanıyor' }
                 ],
                 orcWarlord: [
                     { name: 'Kızıl Balta', kind: 'line', range: 12, width: 3.2, windup: 1.05, damage: 1.8, cooldown: 2.6, color: 0xff8554, warning: 'Balta hattından çık' },
                     { name: 'Yer Sarsıntısı', kind: 'circle', range: 12, radius: 7, windup: 1.4, damage: 1.35, cooldown: 3, color: 0xeeb75c, warning: 'Darbe alanını terk et' },
-                    { name: 'Savaş Narası', kind: 'circle', range: 10, radius: 5, windup: 0.8, damage: 1.15, cooldown: 2.2, color: 0xff554e, warning: 'Hükümdarın öfkesinden kaç' }
+                    { name: 'Savaş Narası', kind: 'circle', range: 10, radius: 5, windup: 0.8, damage: 1.15, cooldown: 2.2, color: 0xff554e, warning: 'Hükümdarın öfkesinden kaç' },
+                    { name: 'Kanlı Nara', kind: 'cone', range: 13, angle: 0.54, windup: 1.2, damage: 1.62, cooldown: 2.8, color: 0xff7b4d, warning: 'Nara dalgasını sağa aç' }
                 ],
                 dragon: [
                     { name: 'Buz Alevi', kind: 'cone', range: 15, angle: 0.46, windup: 1.35, damage: 1.75, cooldown: 3, color: 0x75e9f5, warning: 'Nefes hattından uzaklaş' },
                     { name: 'Kanat Fırtınası', kind: 'circle', range: 12, radius: 8, windup: 1.1, damage: 1.35, cooldown: 2.5, color: 0x8caeff, warning: 'Kanat darbesi geliyor' },
-                    { name: 'Buzul Patlaması', kind: 'circle', range: 16, radius: 4.8, windup: 0.95, damage: 1.55, cooldown: 2.7, color: 0x8bf3ff, warning: 'Buz patlamasından kaç' }
+                    { name: 'Buzul Patlaması', kind: 'circle', range: 16, radius: 4.8, windup: 0.95, damage: 1.55, cooldown: 2.7, color: 0x8bf3ff, warning: 'Buz patlamasından kaç' },
+                    { name: 'Gökyüzü Kesimi', kind: 'line', range: 14, width: 3.4, windup: 1.15, damage: 1.7, cooldown: 2.9, color: 0x9bdcff, warning: 'Kısa kesim boyutunu gör' }
                 ],
                 spiderMatriarch: [
                     { name: 'Örümcek Ağı', kind: 'line', range: 12, width: 2.2, windup: 0.8, damage: 1.15, cooldown: 2.2, color: 0xd9c5a2, warning: 'Ağ çizgisinden sıyrıl' },
                     { name: 'Asit Havuzu', kind: 'circle', range: 14, radius: 4.6, windup: 1, damage: 1.45, cooldown: 2.5, color: 0x8cfa63, warning: 'Asit alanını terk et' },
-                    { name: 'Kara Dul Sıçrayışı', kind: 'circle', range: 15, radius: 5.5, windup: 1.15, damage: 1.65, cooldown: 2.8, color: 0xec5f94, warning: 'Sıçrama inişinden kaç' }
+                    { name: 'Kara Dul Sıçrayışı', kind: 'circle', range: 15, radius: 5.5, windup: 1.15, damage: 1.65, cooldown: 2.8, color: 0xec5f94, warning: 'Sıçrama inişinden kaç' },
+                    { name: 'Ağ Hapsi', kind: 'cone', range: 13, angle: 0.52, windup: 1.05, damage: 1.56, cooldown: 2.7, color: 0xd29ee7, warning: 'Ağdan dışarıya açıl' }
                 ]
             };
             const labelMaterials = {};
@@ -6700,15 +6704,17 @@
             }
 
             explorationRegions = [
-                { id: 'wolf-pass', name: 'Sohan Geçidi', center: [42, -52], radius: 18, detail: 'Aç kurt sürüsü görüldü.', spawns: [['wolf', 38, -48], ['wolf', 44, -50], ['wolf', 47, -56], ['wolf', 39, -58]] },
-                { id: 'red-forest', name: 'Kızıl Orman', center: [-53, 43], radius: 18, detail: 'Kara ayılar ve orman avcıları burada.', spawns: [['bear', -51, 41], ['bear', -57, 46], ['wolf', -48, 48], ['wolf', -59, 39]] },
-                { id: 'stone-quarry', name: 'Şeytan Taşlığı', center: [55, 54], radius: 18, detail: 'Taş muhafızlar bölgeyi koruyor.', spawns: [['golem', 52, 51], ['golem', 59, 56], ['golem', 49, 59]] },
-                { id: 'tiger-ridge', name: 'Kanlı Sırtlar', center: [-30, 73], radius: 14, detail: 'Bu yüksek sırtlarda seviye 26 kanlı kaplanlar avlanıyor.', spawns: [['tiger', -33, 71], ['tiger', -27, 75], ['tiger', -30, 77]] },
-                { id: 'demon-fortress', name: 'Karanlık Hisar', center: [-72, -40], radius: 13, detail: 'Hisarın içinde seviye 35 karanlık savaşçılar nöbet tutuyor.', spawns: [['demon', -74, -38], ['demon', -68, -45], ['demon', -77, -42]] },
-                { id: 'sand-wastes', name: 'Yılan Kumu', center: [0, -78], radius: 10, detail: 'Kumulda seviye 24-28 akrepler, yılanlar ve çöl akıncıları pusuda. Kum İmparatoriçesi yuvasını koruyor.', spawns: [['sandScorpion', 0, -77], ['duneSerpent', 5, -78], ['sandRaider', -5, -78], ['sandEmpress', 0, -78]] },
-                { id: 'ice-dragon-nest', name: 'Buz Ejderi Yuvası', center: [-70, -70], radius: 12, detail: 'En uzak zirvede 48. seviye Buz Ejderhası, üç yıkıcı yeteneğiyle yuvasını koruyor.', spawns: [['dragon', -70, -70]] },
-                { id: 'orc-ravine', name: 'Kızıl Ork Geçidi', center: [74, -60], radius: 12, detail: 'Geçitte seviye 40-44 ork izcileri, kasapları ve şamanları kamp kurmuş. Hükümdar alanda.', spawns: [['orcScout', 72, -58], ['orcBrute', 76, -63], ['orcShaman', 70, -64], ['orcWarlord', 74, -60]] },
-                { id: 'spider-hollow', name: 'Kara Dul Yuvası', center: [-75, 75], radius: 12, detail: 'Yuvada seviye 55-62 zehir örümcekleri ve kraliçeleri saklanıyor.', spawns: [['venomSpider', -77, 74], ['venomSpider', -73, 77], ['caveSpider', -78, 78], ['spiderMatriarch', -75, 75]] }
+                { id: 'wolf-pass', name: 'Sohan Geçidi', center: [42, -52], radius: 18, detail: 'Aç kurt sürüsü görüldü.', spawns: [['wolf', 38, -48], ['wolf', 44, -50], ['wolf', 47, -56], ['wolf', 39, -58], ['wolf', 41, -60]] },
+                { id: 'red-forest', name: 'Kızıl Orman', center: [-53, 43], radius: 18, detail: 'Kara ayılar ve orman avcıları burada.', spawns: [['bear', -51, 41], ['bear', -57, 46], ['wolf', -48, 48], ['wolf', -59, 39], ['bear', -54, 51]] },
+                { id: 'stone-quarry', name: 'Şeytan Taşlığı', center: [55, 54], radius: 18, detail: 'Taş muhafızlar bölgeyi koruyor.', spawns: [['golem', 52, 51], ['golem', 59, 56], ['golem', 49, 59], ['golem', 57, 46]] },
+                { id: 'tiger-ridge', name: 'Kanlı Sırtlar', center: [-30, 73], radius: 14, detail: 'Bu yüksek sırtlarda seviye 26 kanlı kaplanlar avlanıyor.', spawns: [['tiger', -33, 71], ['tiger', -27, 75], ['tiger', -30, 77], ['tiger', -25, 69]] },
+                { id: 'demon-fortress', name: 'Karanlık Hisar', center: [-72, -40], radius: 13, detail: 'Hisarın içinde seviye 35 karanlık savaşçılar nöbet tutuyor.', spawns: [['demon', -74, -38], ['demon', -68, -45], ['demon', -77, -42], ['demon', -70, -31]] },
+                { id: 'sand-wastes', name: 'Yılan Kumu', center: [0, -78], radius: 10, detail: 'Kumulda seviye 24-28 akrepler, yılanlar ve çöl akıncıları pusuda. Kum İmparatoriçesi yuvasını koruyor.', spawns: [['sandScorpion', 0, -77], ['duneSerpent', 5, -78], ['sandRaider', -5, -78], ['sandEmpress', 0, -78], ['sandRaider', 7, -72]] },
+                { id: 'ice-dragon-nest', name: 'Buz Ejderi Yuvası', center: [-70, -70], radius: 12, detail: 'En uzak zirvede 48. seviye Buz Ejderhası, üç yıkıcı yeteneğiyle yuvasını koruyor.', spawns: [['dragon', -70, -70], ['dragon', -74, -74]] },
+                { id: 'orc-ravine', name: 'Kızıl Ork Geçidi', center: [74, -60], radius: 12, detail: 'Geçitte seviye 40-44 ork izcileri, kasapları ve şamanları kamp kurmuş. Hükümdar alanda.', spawns: [['orcScout', 72, -58], ['orcBrute', 76, -63], ['orcShaman', 70, -64], ['orcWarlord', 74, -60], ['orcBrute', 79, -56]] },
+                { id: 'spider-hollow', name: 'Kara Dul Yuvası', center: [-75, 75], radius: 12, detail: 'Yuvada seviye 55-62 zehir örümcekleri ve kraliçeleri saklanıyor.', spawns: [['venomSpider', -77, 74], ['venomSpider', -73, 77], ['caveSpider', -78, 78], ['spiderMatriarch', -75, 75], ['caveSpider', -70, 79]] },
+                { id: 'sunken-gate', name: 'Yüzen Kapı', center: [20, -18], radius: 14, detail: 'Su kenarında gölgeler toplanıyor; eski kapıdaki hayaletler artık uyanıyor.', spawns: [['demon', 18, -17], ['sandRaider', 22, -22], ['dragon', 26, -15]] },
+                { id: 'ash-keep', name: 'Kül Kalesi', center: [68, 28], radius: 13, detail: 'Mızraklı koruyucular ve kırmızı savaşçılar burada bekliyor.', spawns: [['orcBrute', 69, 30], ['orcShaman', 65, 28], ['golem', 72, 24], ['orcWarlord', 68, 28]] }
             ];
             explorationRegions.forEach(region => region.spawns.forEach((spawn, index) => addMonster(spawn[0], region, [spawn[1], spawn[2]], index)));
         }
